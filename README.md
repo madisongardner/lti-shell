@@ -25,4 +25,24 @@ The project emphasizes professional software engineering practices including sec
 - **Authentication:** LTI 1.3 (OIDC + OAuth 2.0)
 
 ## Repository Structure (Planned)
+/app # Web application (LTI tool provider)
+/sandbox # Docker sandbox images and runner logic
+/tests # Assignment test script templates
+/docs # SRS, design docs, diagrams
+/scripts # Utility and deployment scripts
+
+
+## Development Status
+This project is under active development as part of the Spring 2026 semester. Features will be implemented incrementally according to a defined sprint plan.
+
+## Usage Notes
+- This repository is intended for academic use.
+- AI tools may only be used in accordance with course policy.
+- All contributors must adhere to the project scope and design document.
+
+## Team
+- Senior Capstone Team, Western Kentucky University
+
+## License
+This project is developed for educational purposes. Licensing details will be finalized prior to deployment.
 
