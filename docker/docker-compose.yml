@@ -1,0 +1,38 @@
+services:
+  moodle:
+    image: bitnamilegacy/moodle:latest
+    restart: on-failure
+    ports:
+      - "80:8080"
+      - "443:8443"
+    environment:
+      - MOODLE_USERNAME=admin
+      - MOODLE_PASSWORD=Admin123!
+      - MOODLE_EMAIL=admin@example.com
+      - MOODLE_SITE_NAME=LTI Test Site
+      - MOODLE_DATABASE_HOST=db
+      - MOODLE_DATABASE_NAME=moodle
+      - MOODLE_DATABASE_USER=moodle
+      - MOODLE_DATABASE_PASSWORD=moodlepassword
+      - MOODLE_DATABASE_TYPE=mariadb
+    volumes:
+      - moodle_data:/bitnami/moodle
+      - moodledata_data:/bitnami/moodledata
+    depends_on:
+      - db
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=rootpassword
+      - MARIADB_DATABASE=moodle
+      - MARIADB_USER=moodle
+      - MARIADB_PASSWORD=moodlepassword
+      - MARIADB_CHARACTER_SET=utf8mb4
+      - MARIADB_COLLATE=utf8mb4_unicode_ci
+    volumes:
+      - db_data:/var/lib/mysql
+volumes:
+  moodle_data:
+  moodledata_data:
+  db_data:
