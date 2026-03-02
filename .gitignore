@@ -1,0 +1,21 @@
+# Python virtual environment
+venv/
+
+# RSA keys (generated per machine, must not be shared)
+backend/configs/private.key
+backend/configs/public.key
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Flask session files
+flask_session/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
