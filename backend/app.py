@@ -2,6 +2,7 @@ import os
 from flask import Flask, session, jsonify, redirect
 from extensions import cache, sess
 from config import Config
+from database import init_db
 
 # create flask app
 
@@ -19,7 +20,12 @@ sess.init_app(app)
 # Import and register the LTI blueprint
 
 from routes.lti import lti_bp
+from routes.assignments import assignments_bp
 app.register_blueprint(lti_bp, url_prefix='/lti')
+app.register_blueprint(assignments_bp, url_prefix='/api')
+
+with app.app_context():
+    init_db()
 
 @app.route('/')
 def index():

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assignment View - LTI-Shell</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Assignment Workspace</h1>
+      <!-- 
+      <p>
+        <a href="/pages/teacher-dashboard.html">Teacher Dashboard</a> |
+        <a href="/pages/student-dashboard.html">Student Dashboard</a>
+      </p> -->
+
+      <div id="error" style="display: none; color: red; margin-top: 1rem"></div>
+
+      <div id="user-summary" style="margin-top: 1rem">
+        <p>Loading session...</p>
+      </div>
+
+      <div
+        style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap"
+      >
+        <button id="start-btn">Start Attempt</button>
+        <button id="reset-btn" disabled>Reset Attempt</button>
+        <button id="terminate-btn" disabled>Terminate Attempt</button>
+        <button id="refresh-btn" disabled>Refresh Status</button>
+      </div>
+
+      <div style="margin-top: 1rem">
+        <h3>Attempt Status</h3>
+        <table>
+          <tr>
+            <th>Attempt ID</th>
+            <td id="attempt-id">-</td>
+          </tr>
+          <tr>
+            <th>Status</th>
+            <td id="attempt-status">-</td>
+          </tr>
+          <tr>
+            <th>Docker Status</th>
+            <td id="docker-status">-</td>
+          </tr>
+          <tr>
+            <th>Container ID</th>
+            <td id="container-id">-</td>
+          </tr>
+          <tr>
+            <th>Created At</th>
+            <td id="created-at">-</td>
+          </tr>
+          <tr>
+            <th>Expires At</th>
+            <td id="expires-at">-</td>
+          </tr>
+        </table>
+      </div>
+
+      <div id="message" style="margin-top: 1rem"></div>
+    </div>
+
+    <script src="../js/api.js"></script>
+    <script src="/js/terminal.js"></script>
+  </body>
+</html>
