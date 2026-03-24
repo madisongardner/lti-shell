@@ -1,5 +1,11 @@
 const ATTEMPT_KEY = "lti_shell_current_attempt_id";
 
+// Shared client-side state for the terminal session and active websocket.
+let term = null;
+let fitAddon = null;
+let ws = null;
+let exitTerminationSent = false;
+
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text || "";
@@ -30,6 +36,13 @@ function setError(message) {
   el.textContent = message;
 }
 
+function setWsStatus(text, color = "#666") {
+  const el = document.getElementById("ws-status");
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = color;
+}
+
 function setButtons(hasAttempt) {
   document.getElementById("start-btn").disabled = hasAttempt;
   document.getElementById("reset-btn").disabled = !hasAttempt;
@@ -47,6 +60,7 @@ function renderAttempt(data) {
 }
 
 function saveAttemptId(attemptId) {
+  // Keep active attempt across refreshes within the same browser tab/session.
   if (attemptId) {
     sessionStorage.setItem(ATTEMPT_KEY, attemptId);
   } else {
@@ -58,22 +72,249 @@ function getAttemptId() {
   return sessionStorage.getItem(ATTEMPT_KEY);
 }
 
-async function refreshAttempt() {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForRunningAttempt(
+  attemptId,
+  timeoutMs = 8000,
+  pollMs = 300,
+) {
+  const startedAt = Date.now();
+  let latest = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    latest = await API.getAttempt(attemptId);
+    renderAttempt(latest);
+
+    if (latest.status === "terminated") {
+      throw new Error("Attempt is no longer active.");
+    }
+    if (latest.container_id && latest.docker_status === "running") {
+      return latest;
+    }
+
+    await sleep(pollMs);
+  }
+
+  throw new Error(
+    "Container is not ready yet. Try Refresh Status and reconnect.",
+  );
+}
+
+function initTerminal() {
+  // xterm.js instance rendered inside #terminal.
+  term = new window.Terminal({
+    cursorBlink: true,
+    convertEol: true,
+    fontSize: 13,
+    theme: {
+      background: "#111111",
+      foreground: "#e7e7e7",
+    },
+  });
+
+  fitAddon = new window.FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById("terminal"));
+  fitAddon.fit();
+  term.writeln("LTI-Shell terminal ready.");
+
+  // Forward keyboard input to backend websocket terminal bridge.
+  term.onData((data) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "input", data }));
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (!fitAddon || !term) return;
+    fitAddon.fit();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(
+        JSON.stringify({
+          type: "resize",
+          cols: term.cols,
+          rows: term.rows,
+        }),
+      );
+    }
+  });
+
+  document.getElementById("clear-terminal").addEventListener("click", () => {
+    term.clear();
+  });
+}
+
+function closeSocket() {
+  if (ws) {
+    try {
+      ws.close();
+    } catch (_) {}
+    ws = null;
+  }
+  setWsStatus("Disconnected", "#666");
+}
+
+function terminateAttemptOnPageExit() {
+  // Best-effort cleanup: terminate running attempt if user leaves page without clicking Terminate.
+  if (exitTerminationSent) return;
+
   const attemptId = getAttemptId();
   if (!attemptId) return;
 
+  exitTerminationSent = true;
+  closeSocket();
+  saveAttemptId(null);
+
+  const path = `/api/attempts/${encodeURIComponent(attemptId)}/terminate`;
+
+  if (navigator.sendBeacon) {
+    const body = new Blob(["page_exit"], { type: "text/plain;charset=UTF-8" });
+    const queued = navigator.sendBeacon(path, body);
+    if (queued) return;
+  }
+
+  // Fallback for browsers where sendBeacon is unavailable or queueing fails.
+  fetch(path, {
+    method: "POST",
+    credentials: "same-origin",
+    keepalive: true,
+  }).catch(() => {});
+}
+
+function openSocket(attemptId) {
+  return new Promise((resolve, reject) => {
+    let opened = false;
+    let settled = false;
+
+    const rejectOnce = (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+
+    const resolveOnce = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+
+    // One active socket at a time to avoid duplicate streams.
+    closeSocket();
+
+    const proto = window.location.protocol === "https:" ? "wss" : "ws";
+    const url = `${proto}://${window.location.host}/ws/terminal?attempt_id=${encodeURIComponent(attemptId)}`;
+
+    const socket = new WebSocket(url);
+    ws = socket;
+    setWsStatus("Connecting...", "#c58a00");
+
+    socket.onopen = () => {
+      if (ws !== socket) {
+        return;
+      }
+      opened = true;
+      setWsStatus("Connected", "#167c2f");
+      if (fitAddon && term) {
+        fitAddon.fit();
+        socket.send(
+          JSON.stringify({
+            type: "resize",
+            cols: term.cols,
+            rows: term.rows,
+          }),
+        );
+      }
+      term.focus();
+      resolveOnce();
+    };
+
+    // Backend sends JSON envelopes: {type:"output"|"error", ...}
+    socket.onmessage = (event) => {
+      if (ws !== socket) return;
+
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "output") {
+          term.write(msg.data || "");
+          return;
+        }
+        if (msg.type === "error") {
+          const message = msg.message || "Terminal error";
+          setMessage(message, true);
+          term.writeln(`\r\n[error] ${message}\r\n`);
+          if (!opened) rejectOnce(new Error(message));
+          return;
+        }
+      } catch (_) {
+        term.write(event.data || "");
+      }
+    };
+
+    socket.onclose = () => {
+      setWsStatus("Disconnected", "#666");
+      if (ws === socket) {
+        ws = null;
+        setWsStatus("Disconnected", "#666");
+      }
+      if (!opened) {
+        rejectOnce(new Error("Terminal connection closed before open."));
+      }
+    };
+
+    socket.onerror = () => {
+      if (ws === socket) {
+        setWsStatus("Error", "red");
+      }
+      if (!opened) {
+        rejectOnce(new Error("Terminal websocket error."));
+      }
+    };
+  });
+}
+
+async function connectSocketWithRetry(attemptId, retries = 4, delayMs = 350) {
+  let lastError = null;
+  for (let i = 0; i < retries; i += 1) {
+    try {
+      await openSocket(attemptId);
+      return;
+    } catch (error) {
+      lastError = error;
+      await sleep(delayMs * (i + 1));
+    }
+  }
+  throw lastError || new Error("Could not connect terminal websocket.");
+}
+
+async function refreshAttempt() {
+  const attemptId = getAttemptId();
+  if (!attemptId) return null;
+
+  // Pull latest server truth and sync controls/socket state.
   const data = await API.getAttempt(attemptId);
   renderAttempt(data);
 
-  if (data.status === "terminated") {
+  const active = data.status !== "terminated";
+  if (!active) {
     saveAttemptId(null);
     setButtons(false);
+    closeSocket();
   } else {
     setButtons(true);
   }
+
+  return data;
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  initTerminal();
+  // Fire termination on tab close/navigation away.
+  window.addEventListener("beforeunload", terminateAttemptOnPageExit);
+  window.addEventListener("pagehide", terminateAttemptOnPageExit);
+
   const user = await API.getUserInfo();
   if (!user) {
     setError("Not authenticated. Launch from Moodle.");
@@ -111,6 +352,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       saveAttemptId(data.attempt_id);
       renderAttempt(data);
       setButtons(true);
+      const readyAttempt = await waitForRunningAttempt(data.attempt_id);
+      await connectSocketWithRetry(readyAttempt.attempt_id);
       setMessage("Attempt created.");
     } catch (err) {
       setMessage(err.message || "Failed to create attempt.", true);
@@ -126,6 +369,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       const data = await API.resetAttempt(attemptId);
       renderAttempt(data);
       setButtons(true);
+      const readyAttempt = await waitForRunningAttempt(attemptId);
+      await connectSocketWithRetry(readyAttempt.attempt_id);
       setMessage("Attempt reset.");
     } catch (err) {
       setMessage(err.message || "Failed to reset attempt.", true);
@@ -142,6 +387,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderAttempt(data);
       saveAttemptId(null);
       setButtons(false);
+      closeSocket();
+      exitTerminationSent = true;
       setMessage("Attempt terminated.");
     } catch (err) {
       setMessage(err.message || "Failed to terminate attempt.", true);
@@ -151,7 +398,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   refreshBtn.addEventListener("click", async () => {
     try {
       setMessage("Refreshing status...");
-      await refreshAttempt();
+      const data = await refreshAttempt();
+      if (
+        data &&
+        data.status !== "terminated" &&
+        (!ws || ws.readyState !== WebSocket.OPEN)
+      ) {
+        const readyAttempt = await waitForRunningAttempt(data.attempt_id);
+        await connectSocketWithRetry(readyAttempt.attempt_id);
+      }
       setMessage("Status refreshed.");
     } catch (err) {
       setMessage(err.message || "Failed to refresh status.", true);
@@ -160,13 +415,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const savedAttempt = getAttemptId();
   if (savedAttempt) {
+    // Reconnect after refresh if attempt still active.
     try {
-      await refreshAttempt();
-      setButtons(true);
+      const data = await refreshAttempt();
+      if (data && data.status !== "terminated") {
+        const readyAttempt = await waitForRunningAttempt(savedAttempt);
+        await connectSocketWithRetry(readyAttempt.attempt_id);
+      }
     } catch (_) {
       saveAttemptId(null);
       renderAttempt(null);
       setButtons(false);
+      closeSocket();
     }
   } else {
     renderAttempt(null);

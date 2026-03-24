@@ -5,15 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Assignment View - LTI-Shell</title>
     <link rel="stylesheet" href="/css/styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css"
+    />
+    <style>
+      #terminal-wrap {
+        margin-top: 1rem;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      #terminal-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0.75rem;
+        background: #f4f6f8;
+        border-bottom: 1px solid #ddd;
+      }
+      #terminal {
+        height: 340px;
+        padding: 0.25rem;
+        background: #111;
+      }
+      #ws-status {
+        font-size: 0.9rem;
+      }
+    </style>
   </head>
   <body>
     <div class="container">
       <h1>Assignment Workspace</h1>
-      <!-- 
-      <p>
-        <a href="/pages/teacher-dashboard.html">Teacher Dashboard</a> |
-        <a href="/pages/student-dashboard.html">Student Dashboard</a>
-      </p> -->
 
       <div id="error" style="display: none; color: red; margin-top: 1rem"></div>
 
@@ -60,10 +83,29 @@
         </table>
       </div>
 
+      <div id="terminal-wrap">
+        <div id="terminal-toolbar">
+          <strong>Shell</strong>
+          <div>
+            <span id="ws-status">Disconnected</span>
+            <button
+              id="clear-terminal"
+              type="button"
+              style="margin-left: 0.5rem"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+        <div id="terminal"></div>
+      </div>
+
       <div id="message" style="margin-top: 1rem"></div>
     </div>
 
-    <script src="../js/api.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
+    <script src="/js/api.js"></script>
     <script src="/js/terminal.js"></script>
   </body>
 </html>

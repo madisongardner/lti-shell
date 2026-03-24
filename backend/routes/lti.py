@@ -12,6 +12,7 @@ from pylti1p3.contrib.flask import (
 )
 from pylti1p3.tool_config import ToolConfJsonFile
 from services.lti_service import extract_user_data
+from services.audit_service import log_event
 
 lti_bp = Blueprint('lti', __name__)
 
@@ -83,6 +84,16 @@ def launch():
 
     # Use our service to extract a clean user dict
     session['user'] = extract_user_data(launch_data, message_launch.get_launch_id())
+    log_event(
+        'lti.launch.validated',
+        actor_sub=session['user'].get('sub', ''),
+        resource_link_id=session['user'].get('resource_link_id', ''),
+        details={
+            'role': session['user'].get('role', 'student'),
+            'course_id': session['user'].get('course_id', ''),
+            'launch_id': session['user'].get('launch_id', ''),
+        },
+    )
 
     # Redirect based on role
     if session['user']['role'] == 'teacher':

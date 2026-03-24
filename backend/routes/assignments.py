@@ -10,6 +10,8 @@ from services.docker_service import (
     reset_attempt_container,
     terminate_attempt_container,
 )
+from services.attempt_cleanup_service import refresh_attempt_timeout
+from services.audit_service import log_event
 
 assignments_bp = Blueprint("assignments", __name__)
 
@@ -61,11 +63,28 @@ def create_attempt():
             container = create_attempt_container()
             attempt.container_id = container["container_id"]
             attempt.status = container.get("docker_status", "running")
+            refresh_attempt_timeout(attempt)
             db.commit()
             db.refresh(attempt)
+            log_event(
+                "attempt.created",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=attempt.resource_link_id,
+                details={
+                    "attempt_id": attempt.attempt_id,
+                    "container_id": attempt.container_id,
+                    "status": attempt.status,
+                },
+            )
         except Exception as exc:
             attempt.status = "failed"
             db.commit()
+            log_event(
+                "attempt.create_failed",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=attempt.resource_link_id,
+                details={"attempt_id": attempt.attempt_id, "error": str(exc)},
+            )
             return jsonify({"error": f"Failed to create attempt container: {exc}"}), 500
 
         return (
@@ -75,6 +94,7 @@ def create_attempt():
                     "status": attempt.status,
                     "container_id": attempt.container_id,
                     "created_at": attempt.created_at.isoformat(),
+                    "last_activity_at": attempt.last_activity_at.isoformat(),
                     "expires_at": attempt.expires_at.isoformat(),
                 }
             ),
@@ -99,9 +119,26 @@ def reset_attempt(attempt_id):
             container = reset_attempt_container(attempt.container_id)
             attempt.container_id = container["container_id"]
             attempt.status = container.get("docker_status", "running")
+            refresh_attempt_timeout(attempt)
             db.commit()
             db.refresh(attempt)
+            log_event(
+                "attempt.reset",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=attempt.resource_link_id,
+                details={
+                    "attempt_id": attempt.attempt_id,
+                    "container_id": attempt.container_id,
+                    "status": attempt.status,
+                },
+            )
         except Exception as exc:
+            log_event(
+                "attempt.reset_failed",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=attempt.resource_link_id,
+                details={"attempt_id": attempt.attempt_id, "error": str(exc)},
+            )
             return jsonify({"error": f"Failed to reset attempt: {exc}"}), 500
 
         return jsonify(
@@ -109,6 +146,8 @@ def reset_attempt(attempt_id):
                 "attempt_id": attempt.attempt_id,
                 "status": attempt.status,
                 "container_id": attempt.container_id,
+                "last_activity_at": attempt.last_activity_at.isoformat(),
+                "expires_at": attempt.expires_at.isoformat(),
             }
         )
 
@@ -131,7 +170,19 @@ def terminate_attempt(attempt_id):
             attempt.status = "terminated"
             attempt.container_id = None
             db.commit()
+            log_event(
+                "attempt.terminated",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=attempt.resource_link_id,
+                details={"attempt_id": attempt.attempt_id, "container_stopped": stopped},
+            )
         except Exception as exc:
+            log_event(
+                "attempt.terminate_failed",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=attempt.resource_link_id,
+                details={"attempt_id": attempt.attempt_id, "error": str(exc)},
+            )
             return jsonify({"error": f"Failed to terminate attempt: {exc}"}), 500
 
         return jsonify(
@@ -158,6 +209,9 @@ def get_attempt(attempt_id):
 
         try:
             runtime_status = get_container_status(attempt.container_id)
+            refresh_attempt_timeout(attempt)
+            db.commit()
+            db.refresh(attempt)
         except Exception as exc:
             return jsonify({"error": f"Failed to get attempt status: {exc}"}), 500
 
@@ -168,6 +222,7 @@ def get_attempt(attempt_id):
                 "container_id": attempt.container_id,
                 "docker_status": runtime_status.get("docker_status"),
                 "created_at": attempt.created_at.isoformat(),
+                "last_activity_at": attempt.last_activity_at.isoformat(),
                 "expires_at": attempt.expires_at.isoformat(),
             }
         )

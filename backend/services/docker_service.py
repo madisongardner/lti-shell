@@ -4,6 +4,7 @@ import os
 
 import docker
 from docker.errors import DockerException, NotFound
+from sqlalchemy import false
 
 # Runtime defaults (can be overridden with environment variables).
 DEFAULT_IMAGE = os.getenv("LTI_SHELL_IMAGE", "ubuntu:24.04")
@@ -38,7 +39,7 @@ def create_attempt_container():
         mem_limit=DEFAULT_MEM_LIMIT,  # Hard memory cap.
         nano_cpus=DEFAULT_CPU_NANOS,  # Hard CPU cap.
         pids_limit=128,  # Prevent fork bombs.
-        read_only=True,  # Immutable base filesystem.
+        # read_only= false,  # Immutable base filesystem.
         tmpfs={
             "/tmp": "rw,noexec,nosuid,size=64m",
             "/workspace": "rw,noexec,nosuid,size=128m",
