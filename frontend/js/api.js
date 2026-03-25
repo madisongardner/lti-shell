@@ -1,12 +1,14 @@
 const API = {
   async request(path, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+      headers["Content-Type"] = "application/json";
+    }
+
     const response = await fetch(path, {
       credentials: "same-origin",
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
+      headers,
     });
     let payload = null;
     try {
@@ -15,7 +17,8 @@ const API = {
       payload = null;
     }
     if (!response.ok) {
-      const error = new Error(payload?.message || "HTTP " + response.status);
+      const detailText = Array.isArray(payload?.details) ? `: ${payload.details.join("; ")}` : "";
+      const error = new Error((payload?.error || payload?.message || "HTTP " + response.status) + detailText);
       error.status = response.status;
       error.payload = payload;
       throw error;
@@ -77,6 +80,30 @@ const API = {
     return this.request(`/api/assignments/${encodeURIComponent(assignmentId)}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
+    });
+  },
+
+  async uploadStarterZip(assignmentId, file) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return this.request(`/api/assignments/${encodeURIComponent(assignmentId)}/starter-upload`, {
+      method: "POST",
+      body: formData,
+    });
+  },
+
+  async uploadTestsZip(assignmentId, file) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return this.request(`/api/assignments/${encodeURIComponent(assignmentId)}/tests-upload`, {
+      method: "POST",
+      body: formData,
+    });
+  },
+
+  async getAssignmentArtifactsStatus(assignmentId) {
+    return this.request(`/api/assignments/${encodeURIComponent(assignmentId)}/artifacts-status`, {
+      method: "GET",
     });
   },
 };

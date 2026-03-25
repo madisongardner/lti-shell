@@ -49,10 +49,18 @@ function wireTeacherAssignmentManager(user) {
     const instructionsInput = document.getElementById('assignment-instructions');
     const dueAtInput = document.getElementById('assignment-due-at');
     const maxPointsInput = document.getElementById('assignment-max-points');
+    const starterZipInput = document.getElementById('starter-zip');
+    const testsZipInput = document.getElementById('tests-zip');
+    const starterUploadBtn = document.getElementById('starter-upload-btn');
+    const testsUploadBtn = document.getElementById('tests-upload-btn');
+    const artifactStatusEl = document.getElementById('artifact-status');
 
     const resetSelection = () => {
         selectedAssignmentId = null;
         updateBtn.disabled = true;
+        if (starterUploadBtn) starterUploadBtn.disabled = true;
+        if (testsUploadBtn) testsUploadBtn.disabled = true;
+        if (artifactStatusEl) artifactStatusEl.textContent = 'Select an assignment to view artifact status.';
     };
 
     const fillForm = (assignment) => {
@@ -68,6 +76,37 @@ function wireTeacherAssignmentManager(user) {
         due_at: toIsoFromLocalDatetime(dueAtInput.value),
         max_points: Number(maxPointsInput.value),
     });
+
+    const renderArtifactStatus = (status) => {
+        if (!artifactStatusEl) return;
+        if (!status) {
+            artifactStatusEl.textContent = '';
+            return;
+        }
+
+        const reasons = Array.isArray(status.configuration_reasons) ? status.configuration_reasons : [];
+        artifactStatusEl.innerHTML =
+            '<strong>Readiness:</strong> ' + (status.is_configured ? 'Ready' : 'Not ready') + '<br>' +
+            '<strong>Starter ZIP:</strong> ' + (status.starter_zip_uploaded ? 'Uploaded' : 'Missing') + '<br>' +
+            '<strong>Tests ZIP:</strong> ' + (status.tests_zip_uploaded ? 'Uploaded' : 'Missing') + '<br>' +
+            '<strong>run_tests.sh:</strong> ' + (status.has_required_test_runner ? 'Present' : 'Missing') + '<br>' +
+            '<strong>Artifacts Validated:</strong> ' + (status.artifacts_validated ? 'Yes' : 'No') +
+            (status.artifact_validation_error ? ('<br><strong>Last Validation Error:</strong> ' + escapeHtml(status.artifact_validation_error)) : '') +
+            (reasons.length ? ('<br><strong>Missing Requirements:</strong> ' + escapeHtml(reasons.join('; '))) : '');
+    };
+
+    const refreshArtifactStatus = async () => {
+        if (!selectedAssignmentId) {
+            renderArtifactStatus(null);
+            return;
+        }
+        try {
+            const status = await API.getAssignmentArtifactsStatus(selectedAssignmentId);
+            renderArtifactStatus(status);
+        } catch (error) {
+            setAssignmentMessage(error.message || 'Failed to load artifact status.', true);
+        }
+    };
 
     const loadAssignments = async () => {
         try {
@@ -107,8 +146,11 @@ function wireTeacherAssignmentManager(user) {
                     row.style.backgroundColor = '#eef6ff';
                     selectedAssignmentId = assignment.assignment_id;
                     updateBtn.disabled = false;
+                    if (starterUploadBtn) starterUploadBtn.disabled = false;
+                    if (testsUploadBtn) testsUploadBtn.disabled = false;
                     fillForm(assignment);
                     setAssignmentMessage('Selected assignment ' + assignment.assignment_id + ' for editing.');
+                    refreshArtifactStatus();
                 });
             });
         } catch (error) {
@@ -136,11 +178,51 @@ function wireTeacherAssignmentManager(user) {
             await API.updateAssignment(selectedAssignmentId, payload);
             setAssignmentMessage('Assignment updated.');
             await loadAssignments();
+            await refreshArtifactStatus();
         } catch (error) {
             setAssignmentMessage(error.message || 'Failed to update assignment.', true);
         }
     });
 
+    if (starterUploadBtn) {
+        starterUploadBtn.addEventListener('click', async () => {
+            if (!selectedAssignmentId) return;
+            if (!starterZipInput || !starterZipInput.files || !starterZipInput.files[0]) {
+                setAssignmentMessage('Choose a starter ZIP file first.', true);
+                return;
+            }
+            try {
+                await API.uploadStarterZip(selectedAssignmentId, starterZipInput.files[0]);
+                setAssignmentMessage('Starter ZIP uploaded and validated.');
+                await loadAssignments();
+                await refreshArtifactStatus();
+            } catch (error) {
+                setAssignmentMessage(error.message || 'Failed to upload starter ZIP.', true);
+                await refreshArtifactStatus();
+            }
+        });
+    }
+
+    if (testsUploadBtn) {
+        testsUploadBtn.addEventListener('click', async () => {
+            if (!selectedAssignmentId) return;
+            if (!testsZipInput || !testsZipInput.files || !testsZipInput.files[0]) {
+                setAssignmentMessage('Choose a tests ZIP file first.', true);
+                return;
+            }
+            try {
+                await API.uploadTestsZip(selectedAssignmentId, testsZipInput.files[0]);
+                setAssignmentMessage('Tests ZIP uploaded and validated.');
+                await loadAssignments();
+                await refreshArtifactStatus();
+            } catch (error) {
+                setAssignmentMessage(error.message || 'Failed to upload tests ZIP.', true);
+                await refreshArtifactStatus();
+            }
+        });
+    }
+
+    resetSelection();
     loadAssignments();
 }
 

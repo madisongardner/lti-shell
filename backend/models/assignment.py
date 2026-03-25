@@ -25,6 +25,13 @@ class Assignment(Base):
 	is_configured: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
 	grading_feature: Mapped[str] = mapped_column(String(64), nullable=False, default="script_zip")
 	grading_config_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+	starter_zip_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+	tests_zip_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+	starter_extracted_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+	tests_extracted_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+	has_required_test_runner: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+	artifacts_validated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+	artifact_validation_error: Mapped[str] = mapped_column(Text, nullable=False, default="")
 	created_at: Mapped[datetime] = mapped_column(
 		DateTime(timezone=True),
 		nullable=False,

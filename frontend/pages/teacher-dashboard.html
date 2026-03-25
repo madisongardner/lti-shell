@@ -56,6 +56,28 @@
             </table>
         </section>
 
+        <section style="margin-top: 1.5rem;">
+            <h2 style="margin-bottom: 0.75rem;">Assignment Artifacts</h2>
+            <p style="margin-bottom: 0.75rem; color: #555;">
+                Select an assignment row above, then upload both starter and tests ZIP files.
+            </p>
+            <div style="display: grid; gap: 0.75rem;">
+                <label>
+                    Starter ZIP
+                    <input id="starter-zip" type="file" accept=".zip" />
+                </label>
+                <button id="starter-upload-btn" type="button" disabled>Upload Starter ZIP</button>
+
+                <label>
+                    Tests ZIP
+                    <input id="tests-zip" type="file" accept=".zip" />
+                </label>
+                <button id="tests-upload-btn" type="button" disabled>Upload Tests ZIP</button>
+            </div>
+
+            <div id="artifact-status" style="margin-top: 1rem; color: #2c3e50;"></div>
+        </section>
+
         <p style="margin-top: 1rem;">
             <a href="/pages/assignment-view.html">Open Assignment View</a>
         </p>

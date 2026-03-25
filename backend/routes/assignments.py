@@ -13,6 +13,7 @@ from services.docker_service import (
     terminate_attempt_container,
 )
 from services.attempt_cleanup_service import refresh_attempt_timeout
+from services.assignment_artifact_service import ArtifactValidationError, save_assignment_archive
 from services.audit_service import log_event
 
 assignments_bp = Blueprint("assignments", __name__)
@@ -57,6 +58,7 @@ def _require_teacher():
 
 
 def _serialize_assignment(assignment):
+    reasons = _get_assignment_configuration_reasons(assignment)
     return {
         "assignment_id": assignment.assignment_id,
         "instructor_sub": assignment.instructor_sub,
@@ -67,9 +69,56 @@ def _serialize_assignment(assignment):
         "due_at": assignment.due_at.isoformat() if assignment.due_at else None,
         "max_points": assignment.max_points,
         "is_configured": assignment.is_configured,
+        "starter_zip_uploaded": bool(assignment.starter_zip_path),
+        "tests_zip_uploaded": bool(assignment.tests_zip_path),
+        "has_required_test_runner": bool(assignment.has_required_test_runner),
+        "artifacts_validated": bool(assignment.artifacts_validated),
+        "artifact_validation_error": assignment.artifact_validation_error,
+        "configuration_reasons": reasons,
         "created_at": assignment.created_at.isoformat(),
         "updated_at": assignment.updated_at.isoformat(),
     }
+
+
+def _get_assignment_configuration_reasons(assignment):
+    reasons = []
+    if not assignment.title or not assignment.title.strip():
+        reasons.append("Missing assignment title")
+    if not assignment.instructions or not assignment.instructions.strip():
+        reasons.append("Missing assignment instructions")
+    if assignment.max_points is None or assignment.max_points <= 0:
+        reasons.append("Max points must be positive")
+    if not assignment.starter_zip_path:
+        reasons.append("Starter ZIP not uploaded")
+    if not assignment.tests_zip_path:
+        reasons.append("Tests ZIP not uploaded")
+    if not assignment.has_required_test_runner:
+        reasons.append("Tests ZIP must include run_tests.sh")
+    if not assignment.artifacts_validated:
+        reasons.append("Artifacts have not passed validation")
+    if assignment.artifact_validation_error:
+        reasons.append(assignment.artifact_validation_error)
+
+    deduped = []
+    seen = set()
+    for reason in reasons:
+        if reason not in seen:
+            seen.add(reason)
+            deduped.append(reason)
+    return deduped
+
+
+def _refresh_assignment_configuration(assignment):
+    assignment.is_configured = len(_get_assignment_configuration_reasons(assignment)) == 0
+
+
+def _get_assignment_owned_by_teacher(db, user, assignment_id):
+    assignment = db.get(Assignment, assignment_id)
+    if not assignment:
+        return None, (jsonify({"error": "Assignment not found"}), 404)
+    if assignment.course_id != user.get("course_id"):
+        return None, (jsonify({"error": "Forbidden"}), 403)
+    return assignment, None
 
 
 def _parse_due_at(value):
@@ -112,7 +161,6 @@ def _validate_assignment_payload(payload):
         "instructions": instructions,
         "due_at": due_at,
         "max_points": max_points,
-        "is_configured": True,
     }
 
 
@@ -159,8 +207,8 @@ def create_assignment():
             instructions=validated["instructions"],
             due_at=validated["due_at"],
             max_points=validated["max_points"],
-            is_configured=validated["is_configured"],
         )
+        _refresh_assignment_configuration(assignment)
         db.add(assignment)
         db.commit()
         db.refresh(assignment)
@@ -216,11 +264,9 @@ def update_assignment(assignment_id):
 
     payload = request.get_json(silent=True) or {}
     with _db_session() as db:
-        assignment = db.get(Assignment, assignment_id)
-        if not assignment:
-            return jsonify({"error": "Assignment not found"}), 404
-        if assignment.course_id != user.get("course_id"):
-            return jsonify({"error": "Forbidden"}), 403
+        assignment, lookup_error = _get_assignment_owned_by_teacher(db, user, assignment_id)
+        if lookup_error:
+            return lookup_error
 
         try:
             if "title" in payload:
@@ -241,9 +287,7 @@ def update_assignment(assignment_id):
             if "max_points" in payload:
                 assignment.max_points = _coerce_max_points(payload.get("max_points"))
 
-            assignment.is_configured = bool(
-                assignment.title.strip() and assignment.instructions.strip() and assignment.max_points > 0
-            )
+            _refresh_assignment_configuration(assignment)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
 
@@ -258,6 +302,121 @@ def update_assignment(assignment_id):
         return jsonify(_serialize_assignment(assignment))
 
 
+@assignments_bp.route("/assignments/<assignment_id>/starter-upload", methods=["POST"])
+def upload_starter_zip(assignment_id):
+    user, error_response = _require_teacher()
+    if error_response:
+        return error_response
+
+    uploaded_file = request.files.get("file")
+    with _db_session() as db:
+        assignment, lookup_error = _get_assignment_owned_by_teacher(db, user, assignment_id)
+        if lookup_error:
+            return lookup_error
+
+        try:
+            result = save_assignment_archive(uploaded_file, assignment, artifact_kind="starter")
+            assignment.starter_zip_path = result["zip_path"]
+            assignment.starter_extracted_path = result["extracted_path"]
+            assignment.artifacts_validated = bool(assignment.tests_zip_path and assignment.has_required_test_runner)
+            assignment.artifact_validation_error = ""
+            _refresh_assignment_configuration(assignment)
+            db.commit()
+            db.refresh(assignment)
+            log_event(
+                "assignment.starter_uploaded",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=assignment.resource_link_id,
+                details={
+                    "assignment_id": assignment.assignment_id,
+                    "file_count": result["file_count"],
+                },
+            )
+            return jsonify(_serialize_assignment(assignment))
+        except ArtifactValidationError as exc:
+            log_event(
+                "assignment.upload_validation_failed",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=assignment.resource_link_id,
+                details={"assignment_id": assignment.assignment_id, "artifact": "starter", "error": str(exc)},
+            )
+            return jsonify({"error": str(exc)}), 400
+
+
+@assignments_bp.route("/assignments/<assignment_id>/tests-upload", methods=["POST"])
+def upload_tests_zip(assignment_id):
+    user, error_response = _require_teacher()
+    if error_response:
+        return error_response
+
+    uploaded_file = request.files.get("file")
+    with _db_session() as db:
+        assignment, lookup_error = _get_assignment_owned_by_teacher(db, user, assignment_id)
+        if lookup_error:
+            return lookup_error
+
+        try:
+            result = save_assignment_archive(uploaded_file, assignment, artifact_kind="tests")
+            assignment.tests_zip_path = result["zip_path"]
+            assignment.tests_extracted_path = result["extracted_path"]
+            assignment.has_required_test_runner = bool(result["has_required_test_runner"])
+            assignment.artifacts_validated = bool(assignment.starter_zip_path and assignment.has_required_test_runner)
+            assignment.artifact_validation_error = ""
+            _refresh_assignment_configuration(assignment)
+            db.commit()
+            db.refresh(assignment)
+            log_event(
+                "assignment.tests_uploaded",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=assignment.resource_link_id,
+                details={
+                    "assignment_id": assignment.assignment_id,
+                    "file_count": result["file_count"],
+                    "has_required_test_runner": result["has_required_test_runner"],
+                },
+            )
+            return jsonify(_serialize_assignment(assignment))
+        except ArtifactValidationError as exc:
+            log_event(
+                "assignment.upload_validation_failed",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=assignment.resource_link_id,
+                details={"assignment_id": assignment.assignment_id, "artifact": "tests", "error": str(exc)},
+            )
+            return jsonify({"error": str(exc)}), 400
+
+
+@assignments_bp.route("/assignments/<assignment_id>/artifacts-status", methods=["GET"])
+def get_assignment_artifacts_status(assignment_id):
+    user, error_response = _require_user()
+    if error_response:
+        return error_response
+
+    with _db_session() as db:
+        assignment = db.get(Assignment, assignment_id)
+        if not assignment:
+            return jsonify({"error": "Assignment not found"}), 404
+
+        if user.get("role") == "teacher":
+            if assignment.course_id != user.get("course_id"):
+                return jsonify({"error": "Forbidden"}), 403
+        elif assignment.resource_link_id != user.get("resource_link_id"):
+            return jsonify({"error": "Forbidden"}), 403
+
+        return jsonify(
+            {
+                "assignment_id": assignment.assignment_id,
+                "starter_zip_uploaded": bool(assignment.starter_zip_path),
+                "tests_zip_uploaded": bool(assignment.tests_zip_path),
+                "has_required_test_runner": bool(assignment.has_required_test_runner),
+                "artifacts_validated": bool(assignment.artifacts_validated),
+                "artifact_validation_error": assignment.artifact_validation_error,
+                "is_configured": bool(assignment.is_configured),
+                "configuration_reasons": _get_assignment_configuration_reasons(assignment),
+            }
+        )
+
+
 @assignments_bp.route("/attempts", methods=["POST"])
 def create_attempt():
     user, error_response = _require_user()
@@ -267,7 +426,10 @@ def create_attempt():
     with _db_session() as db:
         assignment = _get_assignment_for_launch(db, user)
         if not assignment or not assignment.is_configured:
-            return jsonify({"error": "Assignment is not configured for this activity"}), 400
+            reasons = _get_assignment_configuration_reasons(assignment) if assignment else [
+                "No assignment configured for this activity"
+            ]
+            return jsonify({"error": "Assignment is not configured for this activity", "details": reasons}), 400
 
         attempt = Attempt(
             user_sub=user["sub"],

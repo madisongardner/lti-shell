@@ -58,6 +58,26 @@ def _ensure_schema_columns():
                 conn.execute(
                     text("ALTER TABLE assignments ADD COLUMN grading_config_json TEXT NOT NULL DEFAULT '{}'")
                 )
+            if 'starter_zip_path' not in assignment_columns:
+                conn.execute(text("ALTER TABLE assignments ADD COLUMN starter_zip_path TEXT"))
+            if 'tests_zip_path' not in assignment_columns:
+                conn.execute(text("ALTER TABLE assignments ADD COLUMN tests_zip_path TEXT"))
+            if 'starter_extracted_path' not in assignment_columns:
+                conn.execute(text("ALTER TABLE assignments ADD COLUMN starter_extracted_path TEXT"))
+            if 'tests_extracted_path' not in assignment_columns:
+                conn.execute(text("ALTER TABLE assignments ADD COLUMN tests_extracted_path TEXT"))
+            if 'has_required_test_runner' not in assignment_columns:
+                conn.execute(
+                    text("ALTER TABLE assignments ADD COLUMN has_required_test_runner BOOLEAN NOT NULL DEFAULT 0")
+                )
+            if 'artifacts_validated' not in assignment_columns:
+                conn.execute(
+                    text("ALTER TABLE assignments ADD COLUMN artifacts_validated BOOLEAN NOT NULL DEFAULT 0")
+                )
+            if 'artifact_validation_error' not in assignment_columns:
+                conn.execute(
+                    text("ALTER TABLE assignments ADD COLUMN artifact_validation_error TEXT NOT NULL DEFAULT ''")
+                )
 
         attempt_rows = conn.execute(text('PRAGMA table_info(attempts)')).fetchall()
         if not attempt_rows:
