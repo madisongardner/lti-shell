@@ -89,6 +89,12 @@ function renderSubmission(data) {
   }
 
   setText("submission-completed-at", formatDateDisplay(data?.completed_at));
+  setText("submission-passback-status", data?.passback_status || "-");
+  setText(
+    "submission-passback-attempts",
+    data?.passback_attempts !== undefined ? String(data.passback_attempts) : "-",
+  );
+  setText("submission-passback-error", data?.passback_last_error || "-");
 
   const stdoutEl = document.getElementById("submission-stdout");
   const stderrEl = document.getElementById("submission-stderr");

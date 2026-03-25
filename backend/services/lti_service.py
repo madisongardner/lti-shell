@@ -2,6 +2,7 @@
 ROLES_CLAIM = 'https://purl.imsglobal.org/spec/lti/claim/roles'
 CONTEXT_CLAIM = 'https://purl.imsglobal.org/spec/lti/claim/context'
 RESOURCE_LINK_CLAIM = 'https://purl.imsglobal.org/spec/lti/claim/resource_link'
+AGS_ENDPOINT_CLAIM = 'https://purl.imsglobal.org/spec/lti-ags/claim/endpoint'
 
 # Role substrings that indicate instructor-level access
 INSTRUCTOR_ROLES = ('Instructor', 'Administrator', 'TeachingAssistant')
@@ -24,6 +25,7 @@ def extract_user_data(launch_data, launch_id):
     roles_claim = launch_data.get(ROLES_CLAIM, [])
     context = launch_data.get(CONTEXT_CLAIM, {})
     resource_link = launch_data.get(RESOURCE_LINK_CLAIM, {})
+    ags_endpoint = launch_data.get(AGS_ENDPOINT_CLAIM, {})
 
     return {
         'name': launch_data.get('name', 'Unknown User'),
@@ -36,5 +38,8 @@ def extract_user_data(launch_data, launch_id):
         'course_label': context.get('label', ''),
         'resource_link_id': resource_link.get('id', ''),
         'resource_link_title': resource_link.get('title', ''),
+        'lineitem_url': ags_endpoint.get('lineitem', ''),
+        'lineitems_url': ags_endpoint.get('lineitems', ''),
+        'ags_scopes': ags_endpoint.get('scope', []),
         'launch_id': launch_id
     }

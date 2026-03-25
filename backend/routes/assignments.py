@@ -17,6 +17,7 @@ from services.attempt_cleanup_service import refresh_attempt_timeout
 from services.assignment_artifact_service import ArtifactValidationError, save_assignment_archive
 from services.audit_service import log_event
 from services.grading_service import run_grading_for_attempt
+from services.lti_ags_service import post_grade_with_retry
 
 assignments_bp = Blueprint("assignments", __name__)
 
@@ -75,6 +76,7 @@ def _serialize_assignment(assignment):
         "instructor_sub": assignment.instructor_sub,
         "course_id": assignment.course_id,
         "resource_link_id": assignment.resource_link_id,
+        "lineitem_url": assignment.lineitem_url,
         "title": assignment.title,
         "instructions": assignment.instructions,
         "due_at": assignment.due_at.isoformat() if assignment.due_at else None,
@@ -103,6 +105,12 @@ def _serialize_submission(submission):
         "max_points": submission.max_points,
         "feedback_stdout": submission.feedback_stdout,
         "feedback_stderr": submission.feedback_stderr,
+        "passback_status": submission.passback_status,
+        "passback_attempts": submission.passback_attempts,
+        "passback_last_error": submission.passback_last_error,
+        "passback_completed_at": (
+            submission.passback_completed_at.isoformat() if submission.passback_completed_at else None
+        ),
         "created_at": submission.created_at.isoformat(),
         "completed_at": submission.completed_at.isoformat() if submission.completed_at else None,
     }
@@ -237,6 +245,7 @@ def create_assignment():
             instructor_sub=user.get("sub", ""),
             course_id=user.get("course_id", ""),
             resource_link_id=resource_link_id,
+            lineitem_url=(payload.get("lineitem_url") or user.get("lineitem_url") or "").strip(),
             title=validated["title"],
             instructions=validated["instructions"],
             due_at=validated["due_at"],
@@ -320,6 +329,9 @@ def update_assignment(assignment_id):
 
             if "max_points" in payload:
                 assignment.max_points = _coerce_max_points(payload.get("max_points"))
+
+            if "lineitem_url" in payload:
+                assignment.lineitem_url = (payload.get("lineitem_url") or "").strip()
 
             _refresh_assignment_configuration(assignment)
         except ValueError as exc:
@@ -673,6 +685,7 @@ def submit_attempt(attempt_id):
             status="running",
             score=0.0,
             max_points=assignment.max_points,
+            passback_status="not_attempted",
         )
         db.add(submission)
         db.commit()
@@ -698,7 +711,66 @@ def submit_attempt(attempt_id):
             submission.feedback_stderr = grading["stderr"]
             submission.completed_at = datetime.now(timezone.utc)
 
-            terminate_attempt_container(attempt.container_id)
+            log_event(
+                "passback.started",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=attempt.resource_link_id,
+                details={"submission_id": submission.submission_id},
+            )
+            passback = post_grade_with_retry(
+                launch_id=user.get("launch_id", ""),
+                user_sub=user.get("sub", ""),
+                score=submission.score,
+                max_points=submission.max_points,
+                lineitem_url=assignment.lineitem_url,
+            )
+            submission.passback_attempts = int(passback.get("attempts", 0))
+            submission.passback_completed_at = datetime.now(timezone.utc)
+            if passback.get("success"):
+                submission.passback_status = "succeeded"
+                submission.passback_last_error = ""
+                log_event(
+                    "passback.succeeded",
+                    actor_sub=user.get("sub", ""),
+                    resource_link_id=attempt.resource_link_id,
+                    details={
+                        "submission_id": submission.submission_id,
+                        "attempts": submission.passback_attempts,
+                    },
+                )
+            else:
+                submission.passback_status = "failed"
+                submission.passback_last_error = passback.get("error", "")
+                if submission.passback_attempts > 1:
+                    log_event(
+                        "passback.retried",
+                        actor_sub=user.get("sub", ""),
+                        resource_link_id=attempt.resource_link_id,
+                        details={
+                            "submission_id": submission.submission_id,
+                            "attempts": submission.passback_attempts,
+                        },
+                    )
+                log_event(
+                    "passback.failed",
+                    actor_sub=user.get("sub", ""),
+                    resource_link_id=attempt.resource_link_id,
+                    details={
+                        "submission_id": submission.submission_id,
+                        "error": submission.passback_last_error,
+                        "attempts": submission.passback_attempts,
+                    },
+                )
+
+            try:
+                terminate_attempt_container(attempt.container_id)
+            except Exception as term_exc:
+                log_event(
+                    "attempt.terminate_failed",
+                    actor_sub=user.get("sub", ""),
+                    resource_link_id=attempt.resource_link_id,
+                    details={"attempt_id": attempt.attempt_id, "error": str(term_exc)},
+                )
             attempt.container_id = None
             attempt.status = "submitted"
 
@@ -720,7 +792,15 @@ def submit_attempt(attempt_id):
             submission.score = 0.0
             submission.feedback_stderr = str(exc)
             submission.completed_at = datetime.now(timezone.utc)
-            terminate_attempt_container(attempt.container_id)
+            try:
+                terminate_attempt_container(attempt.container_id)
+            except Exception as term_exc:
+                log_event(
+                    "attempt.terminate_failed",
+                    actor_sub=user.get("sub", ""),
+                    resource_link_id=attempt.resource_link_id,
+                    details={"attempt_id": attempt.attempt_id, "error": str(term_exc)},
+                )
             attempt.container_id = None
             attempt.status = "submitted"
             db.commit()

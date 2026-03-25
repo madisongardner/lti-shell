@@ -18,6 +18,7 @@ class Assignment(Base):
 	instructor_sub: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
 	course_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
 	resource_link_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+	lineitem_url: Mapped[str] = mapped_column(Text, nullable=False, default="")
 	title: Mapped[str] = mapped_column(String(255), nullable=False)
 	instructions: Mapped[str] = mapped_column(Text, nullable=False)
 	due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

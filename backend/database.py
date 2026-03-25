@@ -50,6 +50,10 @@ def _ensure_schema_columns():
         rows = conn.execute(text('PRAGMA table_info(assignments)')).fetchall()
         if rows:
             assignment_columns = {row[1] for row in rows}
+            if 'lineitem_url' not in assignment_columns:
+                conn.execute(
+                    text("ALTER TABLE assignments ADD COLUMN lineitem_url TEXT NOT NULL DEFAULT ''")
+                )
             if 'grading_feature' not in assignment_columns:
                 conn.execute(
                     text("ALTER TABLE assignments ADD COLUMN grading_feature VARCHAR(64) NOT NULL DEFAULT 'script_zip'")
@@ -77,6 +81,26 @@ def _ensure_schema_columns():
             if 'artifact_validation_error' not in assignment_columns:
                 conn.execute(
                     text("ALTER TABLE assignments ADD COLUMN artifact_validation_error TEXT NOT NULL DEFAULT ''")
+                )
+
+        submission_rows = conn.execute(text('PRAGMA table_info(submissions)')).fetchall()
+        if submission_rows:
+            submission_columns = {row[1] for row in submission_rows}
+            if 'passback_status' not in submission_columns:
+                conn.execute(
+                    text("ALTER TABLE submissions ADD COLUMN passback_status VARCHAR(32) NOT NULL DEFAULT 'not_attempted'")
+                )
+            if 'passback_attempts' not in submission_columns:
+                conn.execute(
+                    text("ALTER TABLE submissions ADD COLUMN passback_attempts INTEGER NOT NULL DEFAULT 0")
+                )
+            if 'passback_last_error' not in submission_columns:
+                conn.execute(
+                    text("ALTER TABLE submissions ADD COLUMN passback_last_error TEXT NOT NULL DEFAULT ''")
+                )
+            if 'passback_completed_at' not in submission_columns:
+                conn.execute(
+                    text("ALTER TABLE submissions ADD COLUMN passback_completed_at DATETIME")
                 )
 
         attempt_rows = conn.execute(text('PRAGMA table_info(attempts)')).fetchall()

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Float, String, Text
+from sqlalchemy import DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
@@ -24,6 +24,10 @@ class Submission(Base):
 	max_points: Mapped[float] = mapped_column(Float, nullable=False, default=100.0)
 	feedback_stdout: Mapped[str] = mapped_column(Text, nullable=False, default="")
 	feedback_stderr: Mapped[str] = mapped_column(Text, nullable=False, default="")
+	passback_status: Mapped[str] = mapped_column(String(32), nullable=False, default="not_attempted", index=True)
+	passback_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+	passback_last_error: Mapped[str] = mapped_column(Text, nullable=False, default="")
+	passback_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 	created_at: Mapped[datetime] = mapped_column(
 		DateTime(timezone=True),
 		nullable=False,
