@@ -12,9 +12,54 @@
         <div id="user-info">
             <p>Loading user information...</p>
         </div>
+
+        <section style="margin-top: 1.5rem;">
+            <h2 style="margin-bottom: 0.75rem;">Create Assignment For This LTI Activity</h2>
+            <form id="assignment-form" style="display: grid; gap: 0.75rem;">
+                <label>
+                    Title
+                    <input id="assignment-title" type="text" required style="width: 100%; padding: 0.5rem;" />
+                </label>
+                <label>
+                    Instructions
+                    <textarea id="assignment-instructions" rows="5" required style="width: 100%; padding: 0.5rem;"></textarea>
+                </label>
+                <label>
+                    Due Date (optional)
+                    <input id="assignment-due-at" type="datetime-local" style="width: 100%; padding: 0.5rem;" />
+                </label>
+                <label>
+                    Max Points
+                    <input id="assignment-max-points" type="number" min="1" step="1" value="100" required style="width: 100%; padding: 0.5rem;" />
+                </label>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button id="assignment-submit" type="submit">Create Assignment</button>
+                    <button id="assignment-update" type="button" disabled>Update Selected</button>
+                </div>
+            </form>
+        </section>
+
+        <section style="margin-top: 1.5rem;">
+            <h2 style="margin-bottom: 0.75rem;">Assignments In This Course</h2>
+            <div id="assignments-empty" style="color: #666;">No assignments created yet.</div>
+            <table id="assignments-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Resource Link</th>
+                        <th>Due</th>
+                        <th>Points</th>
+                        <th>Configured</th>
+                    </tr>
+                </thead>
+                <tbody id="assignments-tbody"></tbody>
+            </table>
+        </section>
+
         <p style="margin-top: 1rem;">
             <a href="/pages/assignment-view.html">Open Assignment View</a>
         </p>
+        <div id="assignment-message" style="margin-top: 1rem;"></div>
         <div id="error" style="display: none; color: red;"></div>
     </div>
     <script src="/js/api.js"></script>

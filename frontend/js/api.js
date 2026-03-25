@@ -57,4 +57,26 @@ const API = {
       method: "GET",
     });
   },
+
+  async createAssignment(payload) {
+    return this.request("/api/assignments", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async listAssignments() {
+    return this.request("/api/assignments", { method: "GET" });
+  },
+
+  async getCurrentAssignment() {
+    return this.request("/api/assignments/current", { method: "GET" });
+  },
+
+  async updateAssignment(assignmentId, payload) {
+    return this.request(`/api/assignments/${encodeURIComponent(assignmentId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
 };

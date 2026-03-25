@@ -17,6 +17,13 @@ function setText(id, value) {
   if (el) el.textContent = value ?? "-";
 }
 
+function formatDateDisplay(isoValue) {
+  if (!isoValue) return "-";
+  const dt = new Date(isoValue);
+  if (Number.isNaN(dt.getTime())) return "-";
+  return dt.toLocaleString();
+}
+
 function setMessage(message, isError = false) {
   const el = document.getElementById("message");
   if (!el) return;
@@ -57,6 +64,14 @@ function renderAttempt(data) {
   setText("container-id", data?.container_id || "-");
   setText("created-at", data?.created_at || "-");
   setText("expires-at", data?.expires_at || "-");
+}
+
+function renderAssignment(data) {
+  setText("assignment-title", data?.title || "-");
+  setText("assignment-instructions", data?.instructions || "-");
+  setText("assignment-due-at", formatDateDisplay(data?.due_at));
+  setText("assignment-max-points", data?.max_points ?? "-");
+  setText("assignment-configured", data?.is_configured ? "Yes" : "No");
 }
 
 function saveAttemptId(attemptId) {
@@ -322,6 +337,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  let assignment = null;
+  try {
+    assignment = await API.getCurrentAssignment();
+    renderAssignment(assignment);
+  } catch (err) {
+    renderAssignment(null);
+    setError(err.message || "Assignment is not configured for this activity.");
+    setButtons(false);
+  }
+
   document.getElementById("user-summary").innerHTML =
     "<table>" +
     "<tr><th>Name</th><td>" +
@@ -346,6 +371,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const refreshBtn = document.getElementById("refresh-btn");
 
   startBtn.addEventListener("click", async () => {
+    if (!assignment || !assignment.is_configured) {
+      setMessage("Assignment is not configured for this activity.", true);
+      return;
+    }
+
     try {
       setMessage("Creating attempt...");
       const data = await API.createAttempt();
@@ -414,6 +444,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   const savedAttempt = getAttemptId();
+  if (!assignment || !assignment.is_configured) {
+    saveAttemptId(null);
+    renderAttempt(null);
+    closeSocket();
+    return;
+  }
+
   if (savedAttempt) {
     // Reconnect after refresh if attempt still active.
     try {
