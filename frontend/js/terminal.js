@@ -55,6 +55,10 @@ function setButtons(hasAttempt) {
   document.getElementById("reset-btn").disabled = !hasAttempt;
   document.getElementById("terminate-btn").disabled = !hasAttempt;
   document.getElementById("refresh-btn").disabled = !hasAttempt;
+  const submitBtn = document.getElementById("submit-btn");
+  if (submitBtn) {
+    submitBtn.disabled = !hasAttempt;
+  }
 }
 
 function renderAttempt(data) {
@@ -72,6 +76,24 @@ function renderAssignment(data) {
   setText("assignment-due-at", formatDateDisplay(data?.due_at));
   setText("assignment-max-points", data?.max_points ?? "-");
   setText("assignment-configured", data?.is_configured ? "Yes" : "No");
+}
+
+function renderSubmission(data) {
+  setText("submission-id", data?.submission_id || "-");
+  setText("submission-status", data?.status || "-");
+
+  if (data && data.score !== undefined && data.max_points !== undefined) {
+    setText("submission-score", `${data.score}/${data.max_points}`);
+  } else {
+    setText("submission-score", "-");
+  }
+
+  setText("submission-completed-at", formatDateDisplay(data?.completed_at));
+
+  const stdoutEl = document.getElementById("submission-stdout");
+  const stderrEl = document.getElementById("submission-stderr");
+  if (stdoutEl) stdoutEl.textContent = data?.feedback_stdout || "-";
+  if (stderrEl) stderrEl.textContent = data?.feedback_stderr || "-";
 }
 
 function saveAttemptId(attemptId) {
@@ -103,7 +125,7 @@ async function waitForRunningAttempt(
     latest = await API.getAttempt(attemptId);
     renderAttempt(latest);
 
-    if (latest.status === "terminated") {
+    if (["terminated", "submitted", "expired"].includes(latest.status)) {
       throw new Error("Attempt is no longer active.");
     }
     if (latest.container_id && latest.docker_status === "running") {
@@ -312,7 +334,7 @@ async function refreshAttempt() {
   const data = await API.getAttempt(attemptId);
   renderAttempt(data);
 
-  const active = data.status !== "terminated";
+  const active = !["terminated", "submitted", "expired"].includes(data.status);
   if (!active) {
     saveAttemptId(null);
     setButtons(false);
@@ -369,6 +391,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const resetBtn = document.getElementById("reset-btn");
   const terminateBtn = document.getElementById("terminate-btn");
   const refreshBtn = document.getElementById("refresh-btn");
+  const submitBtn = document.getElementById("submit-btn");
+
+  renderSubmission(null);
 
   startBtn.addEventListener("click", async () => {
     if (!assignment || !assignment.is_configured) {
@@ -382,6 +407,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       saveAttemptId(data.attempt_id);
       renderAttempt(data);
       setButtons(true);
+      renderSubmission(null);
       const readyAttempt = await waitForRunningAttempt(data.attempt_id);
       await connectSocketWithRetry(readyAttempt.attempt_id);
       setMessage("Attempt created.");
@@ -399,6 +425,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const data = await API.resetAttempt(attemptId);
       renderAttempt(data);
       setButtons(true);
+      renderSubmission(null);
       const readyAttempt = await waitForRunningAttempt(attemptId);
       await connectSocketWithRetry(readyAttempt.attempt_id);
       setMessage("Attempt reset.");
@@ -420,10 +447,40 @@ document.addEventListener("DOMContentLoaded", async () => {
       closeSocket();
       exitTerminationSent = true;
       setMessage("Attempt terminated.");
+      renderSubmission(null);
     } catch (err) {
       setMessage(err.message || "Failed to terminate attempt.", true);
     }
   });
+
+  if (submitBtn) {
+    submitBtn.addEventListener("click", async () => {
+      const attemptId = getAttemptId();
+      if (!attemptId) return;
+
+      if (user.role === "teacher") {
+        setMessage("Only students can submit assignments.", true);
+        return;
+      }
+
+      try {
+        setMessage("Submitting for grading...");
+        const submission = await API.submitAttempt(attemptId);
+        renderSubmission(submission);
+        saveAttemptId(null);
+        renderAttempt({ status: "submitted" });
+        setButtons(false);
+        closeSocket();
+        exitTerminationSent = true;
+        setMessage("Submission graded. See results below.");
+      } catch (err) {
+        if (err?.payload?.submission_id) {
+          renderSubmission(err.payload);
+        }
+        setMessage(err.message || "Failed to submit assignment.", true);
+      }
+    });
+  }
 
   refreshBtn.addEventListener("click", async () => {
     try {
@@ -468,5 +525,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   } else {
     renderAttempt(null);
     setButtons(false);
+  }
+
+  if (user.role === "teacher" && submitBtn) {
+    submitBtn.disabled = true;
   }
 });

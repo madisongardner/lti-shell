@@ -61,6 +61,24 @@ const API = {
     });
   },
 
+  async submitAttempt(attemptId) {
+    return this.request(`/api/attempts/${encodeURIComponent(attemptId)}/submit`, {
+      method: "POST",
+    });
+  },
+
+  async getSubmission(submissionId) {
+    return this.request(`/api/submissions/${encodeURIComponent(submissionId)}`, {
+      method: "GET",
+    });
+  },
+
+  async listAttemptSubmissions(attemptId) {
+    return this.request(`/api/attempts/${encodeURIComponent(attemptId)}/submissions`, {
+      method: "GET",
+    });
+  },
+
   async createAssignment(payload) {
     return this.request("/api/assignments", {
       method: "POST",

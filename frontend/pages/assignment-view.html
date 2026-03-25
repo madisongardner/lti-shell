@@ -77,6 +77,7 @@
         <button id="reset-btn" disabled>Reset Attempt</button>
         <button id="terminate-btn" disabled>Terminate Attempt</button>
         <button id="refresh-btn" disabled>Refresh Status</button>
+        <button id="submit-btn" disabled>Submit For Grading</button>
       </div>
 
       <div style="margin-top: 1rem">
@@ -124,6 +125,36 @@
           </div>
         </div>
         <div id="terminal"></div>
+      </div>
+
+      <div style="margin-top: 1rem">
+        <h3>Latest Submission</h3>
+        <table>
+          <tr>
+            <th>Submission ID</th>
+            <td id="submission-id">-</td>
+          </tr>
+          <tr>
+            <th>Status</th>
+            <td id="submission-status">-</td>
+          </tr>
+          <tr>
+            <th>Score</th>
+            <td id="submission-score">-</td>
+          </tr>
+          <tr>
+            <th>Completed At</th>
+            <td id="submission-completed-at">-</td>
+          </tr>
+        </table>
+        <div style="margin-top: 0.75rem">
+          <strong>Stdout</strong>
+          <pre id="submission-stdout" style="max-height: 180px; overflow: auto; border: 1px solid #ddd; padding: 0.5rem; background: #fafafa">-</pre>
+        </div>
+        <div style="margin-top: 0.75rem">
+          <strong>Stderr</strong>
+          <pre id="submission-stderr" style="max-height: 180px; overflow: auto; border: 1px solid #ddd; padding: 0.5rem; background: #fff6f6">-</pre>
+        </div>
       </div>
 
       <div id="message" style="margin-top: 1rem"></div>

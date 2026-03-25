@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request, session
 from database import SessionLocal
 from models.assignment import Assignment
 from models.attempt import Attempt
+from models.submission import Submission
 from services.docker_service import (
     create_attempt_container,
     get_container_status,
@@ -15,6 +16,7 @@ from services.docker_service import (
 from services.attempt_cleanup_service import refresh_attempt_timeout
 from services.assignment_artifact_service import ArtifactValidationError, save_assignment_archive
 from services.audit_service import log_event
+from services.grading_service import run_grading_for_attempt
 
 assignments_bp = Blueprint("assignments", __name__)
 
@@ -57,6 +59,15 @@ def _require_teacher():
     return user, None
 
 
+def _require_student():
+    user, error_response = _require_user()
+    if error_response:
+        return None, error_response
+    if user.get("role") == "teacher":
+        return None, (jsonify({"error": "Student access required"}), 403)
+    return user, None
+
+
 def _serialize_assignment(assignment):
     reasons = _get_assignment_configuration_reasons(assignment)
     return {
@@ -78,6 +89,29 @@ def _serialize_assignment(assignment):
         "created_at": assignment.created_at.isoformat(),
         "updated_at": assignment.updated_at.isoformat(),
     }
+
+
+def _serialize_submission(submission):
+    return {
+        "submission_id": submission.submission_id,
+        "assignment_id": submission.assignment_id,
+        "attempt_id": submission.attempt_id,
+        "user_sub": submission.user_sub,
+        "resource_link_id": submission.resource_link_id,
+        "status": submission.status,
+        "score": submission.score,
+        "max_points": submission.max_points,
+        "feedback_stdout": submission.feedback_stdout,
+        "feedback_stderr": submission.feedback_stderr,
+        "created_at": submission.created_at.isoformat(),
+        "completed_at": submission.completed_at.isoformat() if submission.completed_at else None,
+    }
+
+
+def _can_access_submission(user, submission):
+    if user.get("role") == "teacher":
+        return submission.resource_link_id == user.get("resource_link_id")
+    return submission.user_sub == user.get("sub") and submission.resource_link_id == user.get("resource_link_id")
 
 
 def _get_assignment_configuration_reasons(assignment):
@@ -607,3 +641,131 @@ def get_attempt(attempt_id):
                 "expires_at": attempt.expires_at.isoformat(),
             }
         )
+
+
+@assignments_bp.route("/attempts/<attempt_id>/submit", methods=["POST"])
+def submit_attempt(attempt_id):
+    user, error_response = _require_student()
+    if error_response:
+        return error_response
+
+    with _db_session() as db:
+        attempt = db.get(Attempt, attempt_id)
+        if not attempt:
+            return jsonify({"error": "Attempt not found"}), 404
+        if not _can_access_attempt(user, attempt):
+            return jsonify({"error": "Forbidden"}), 403
+        if attempt.status in {"terminated", "expired", "submitted"}:
+            return jsonify({"error": "Attempt is no longer active"}), 400
+
+        assignment = _get_assignment_for_launch(db, user)
+        if not assignment or not assignment.is_configured:
+            reasons = _get_assignment_configuration_reasons(assignment) if assignment else [
+                "No assignment configured for this activity"
+            ]
+            return jsonify({"error": "Assignment is not ready for submission", "details": reasons}), 400
+
+        submission = Submission(
+            assignment_id=assignment.assignment_id,
+            attempt_id=attempt.attempt_id,
+            user_sub=user.get("sub", ""),
+            resource_link_id=attempt.resource_link_id,
+            status="running",
+            score=0.0,
+            max_points=assignment.max_points,
+        )
+        db.add(submission)
+        db.commit()
+        db.refresh(submission)
+        log_event(
+            "submission.created",
+            actor_sub=user.get("sub", ""),
+            resource_link_id=attempt.resource_link_id,
+            details={"submission_id": submission.submission_id, "attempt_id": attempt.attempt_id},
+        )
+
+        try:
+            log_event(
+                "grading.started",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=attempt.resource_link_id,
+                details={"submission_id": submission.submission_id},
+            )
+            grading = run_grading_for_attempt(assignment, attempt)
+            submission.status = grading["status"]
+            submission.score = float(grading["score"])
+            submission.feedback_stdout = grading["stdout"]
+            submission.feedback_stderr = grading["stderr"]
+            submission.completed_at = datetime.now(timezone.utc)
+
+            terminate_attempt_container(attempt.container_id)
+            attempt.container_id = None
+            attempt.status = "submitted"
+
+            db.commit()
+            db.refresh(submission)
+            log_event(
+                "grading.completed",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=attempt.resource_link_id,
+                details={
+                    "submission_id": submission.submission_id,
+                    "status": submission.status,
+                    "score": submission.score,
+                },
+            )
+            return jsonify(_serialize_submission(submission)), 201
+        except Exception as exc:
+            submission.status = "error"
+            submission.score = 0.0
+            submission.feedback_stderr = str(exc)
+            submission.completed_at = datetime.now(timezone.utc)
+            terminate_attempt_container(attempt.container_id)
+            attempt.container_id = None
+            attempt.status = "submitted"
+            db.commit()
+            db.refresh(submission)
+            log_event(
+                "grading.failed",
+                actor_sub=user.get("sub", ""),
+                resource_link_id=attempt.resource_link_id,
+                details={"submission_id": submission.submission_id, "error": str(exc)},
+            )
+            return jsonify(_serialize_submission(submission)), 500
+
+
+@assignments_bp.route("/submissions/<submission_id>", methods=["GET"])
+def get_submission(submission_id):
+    user, error_response = _require_user()
+    if error_response:
+        return error_response
+
+    with _db_session() as db:
+        submission = db.get(Submission, submission_id)
+        if not submission:
+            return jsonify({"error": "Submission not found"}), 404
+        if not _can_access_submission(user, submission):
+            return jsonify({"error": "Forbidden"}), 403
+        return jsonify(_serialize_submission(submission))
+
+
+@assignments_bp.route("/attempts/<attempt_id>/submissions", methods=["GET"])
+def list_attempt_submissions(attempt_id):
+    user, error_response = _require_user()
+    if error_response:
+        return error_response
+
+    with _db_session() as db:
+        attempt = db.get(Attempt, attempt_id)
+        if not attempt:
+            return jsonify({"error": "Attempt not found"}), 404
+        if not _can_access_attempt(user, attempt):
+            return jsonify({"error": "Forbidden"}), 403
+
+        submissions = (
+            db.query(Submission)
+            .filter(Submission.attempt_id == attempt_id)
+            .order_by(Submission.created_at.desc())
+            .all()
+        )
+        return jsonify({"items": [_serialize_submission(item) for item in submissions]})
