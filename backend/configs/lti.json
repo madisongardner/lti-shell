@@ -2,7 +2,7 @@
   "http://localhost": [
     {
       "default": true,
-      "client_id": "gyRE9EBu2g7uuHc",
+      "client_id": "doACVwC11prh8QA",
       "auth_login_url": "http://localhost/mod/lti/auth.php",
       "auth_token_url": "http://localhost/mod/lti/token.php",
       "auth_audience": null,

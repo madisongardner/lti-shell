@@ -15,6 +15,7 @@ services:
       - MOODLE_DATABASE_USER=moodle
       - MOODLE_DATABASE_PASSWORD=moodlepassword
       - MOODLE_DATABASE_TYPE=mariadb
+      - MOODLE_SSLCHECK=no
     volumes:
       - moodle_data:/bitnami/moodle
       - moodledata_data:/bitnami/moodledata
