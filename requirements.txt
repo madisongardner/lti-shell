@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-sqlalchemy
-python-dotenv
-docker
-PyLTI1p3

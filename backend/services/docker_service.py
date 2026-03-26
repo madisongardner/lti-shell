@@ -41,7 +41,6 @@ def create_attempt_container():
         pids_limit=128,  # Prevent fork bombs.
         # read_only= false,  # Immutable base filesystem.
         tmpfs={
-            "/tmp": "rw,noexec,nosuid,size=64m",
             "/workspace": "rw,noexec,nosuid,size=128m",
         },
         auto_remove=True,  # Remove container after stop.
