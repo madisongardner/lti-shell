@@ -10,6 +10,7 @@ from models.submission import Submission
 from services.docker_service import (
     create_attempt_container,
     get_container_status,
+    populate_workspace_from_starter,
     reset_attempt_container,
     terminate_attempt_container,
 )
@@ -490,6 +491,10 @@ def create_attempt():
             container = create_attempt_container()
             attempt.container_id = container["container_id"]
             attempt.status = container.get("docker_status", "running")
+            starter_sync = populate_workspace_from_starter(
+                attempt.container_id,
+                assignment.starter_extracted_path,
+            )
             refresh_attempt_timeout(attempt)
             db.commit()
             db.refresh(attempt)
@@ -501,6 +506,8 @@ def create_attempt():
                     "attempt_id": attempt.attempt_id,
                     "container_id": attempt.container_id,
                     "status": attempt.status,
+                    "starter_copied": bool(starter_sync.get("copied")),
+                    "starter_file_count": int(starter_sync.get("file_count", 0)),
                 },
             )
         except Exception as exc:
@@ -546,6 +553,11 @@ def reset_attempt(attempt_id):
             container = reset_attempt_container(attempt.container_id)
             attempt.container_id = container["container_id"]
             attempt.status = container.get("docker_status", "running")
+            assignment = _get_assignment_for_launch(db, user)
+            starter_sync = populate_workspace_from_starter(
+                attempt.container_id,
+                assignment.starter_extracted_path if assignment else None,
+            )
             refresh_attempt_timeout(attempt)
             db.commit()
             db.refresh(attempt)
@@ -557,6 +569,8 @@ def reset_attempt(attempt_id):
                     "attempt_id": attempt.attempt_id,
                     "container_id": attempt.container_id,
                     "status": attempt.status,
+                    "starter_copied": bool(starter_sync.get("copied")),
+                    "starter_file_count": int(starter_sync.get("file_count", 0)),
                 },
             )
         except Exception as exc:

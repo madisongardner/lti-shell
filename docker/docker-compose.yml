@@ -32,6 +32,13 @@ services:
       - MARIADB_COLLATE=utf8mb4_unicode_ci
     volumes:
       - db_data:/var/lib/mysql
+  sandbox_image:
+    image: lti-shell-sandbox:latest
+    build:
+      context: ..
+      dockerfile: docker/sandbox/Dockerfile
+    profiles: ["build-only"]
+
 volumes:
   moodle_data:
   moodledata_data:

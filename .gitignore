@@ -4,6 +4,8 @@ venv/
 # RSA keys (generated per machine, must not be shared)
 backend/configs/private.key
 backend/configs/public.key
+#configuration files
+backend/configs/lti.json
 
 # Python bytecode
 __pycache__/
@@ -22,3 +24,7 @@ Thumbs.db
 
 #lti shell database
 backend/lti_shell.db
+
+#artifacts
+backend/artifacts/
+

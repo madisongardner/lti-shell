@@ -3,6 +3,7 @@
 import io
 import os
 import re
+import subprocess
 import tarfile
 from pathlib import Path
 
@@ -34,6 +35,26 @@ def _build_tests_tar_bytes(tests_dir: Path) -> bytes:
 			tar.add(file_path, arcname=str(arcname))
 	buff.seek(0)
 	return buff.getvalue()
+
+
+def _stage_tests_in_container(container_id: str, tests_tar: bytes):
+	process = subprocess.run(
+		[
+			"docker",
+			"exec",
+			"-i",
+			container_id,
+			"bash",
+			"-lc",
+			"rm -rf /tmp/lti_tests && mkdir -p /tmp && tar -xmf - -C /tmp",
+		],
+		input=tests_tar,
+		capture_output=True,
+		check=False,
+	)
+	if process.returncode != 0:
+		stderr = process.stderr.decode("utf-8", "ignore").strip()
+		raise RuntimeError(f"Unable to stage tests in container: {stderr}")
 
 
 def _decode_output(raw):
@@ -71,9 +92,7 @@ def run_grading_for_attempt(assignment, attempt):
 		raise ValueError("Attempt container not found") from exc
 
 	tests_tar = _build_tests_tar_bytes(tests_dir)
-	copied = container.put_archive("/tmp", tests_tar)
-	if not copied:
-		raise RuntimeError("Unable to stage tests in container")
+	_stage_tests_in_container(container.id, tests_tar)
 
 	run_cmd = (
 		"set -e; "
