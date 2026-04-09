@@ -11,7 +11,7 @@ import docker
 from docker.errors import DockerException, NotFound
 
 DEFAULT_GRADING_TIMEOUT_SECONDS = int(os.getenv("LTI_SHELL_GRADING_TIMEOUT_SECONDS", "30"))
-SCORE_PATTERN = re.compile(r"SCORE\s*=\s*([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
+SCORE_PATTERN = re.compile(r"SCORE\s*=\s*(-?[0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
 
 
 def _docker_client():
