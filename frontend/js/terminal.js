@@ -48,6 +48,22 @@ function setWsStatus(text, color = "#666") {
   if (!el) return;
   el.textContent = text;
   el.style.color = color;
+
+  const indicator = el.closest(".ws-indicator");
+  if (!indicator) return;
+
+  const normalized = String(text || "").toLowerCase();
+  let state = "disconnected";
+  if (normalized.includes("error")) {
+    state = "error";
+  } else if (normalized.includes("disconnected")) {
+    state = "disconnected";
+  } else if (normalized.includes("connected")) {
+    state = "connected";
+  } else if (normalized.includes("connecting")) {
+    state = "connecting";
+  }
+  indicator.dataset.state = state;
 }
 
 function setButtons(hasAttempt) {
@@ -72,7 +88,31 @@ function renderAttempt(data) {
 
 function renderAssignment(data) {
   setText("assignment-title", data?.title || "-");
-  setText("assignment-instructions", data?.instructions || "-");
+  const instructionsEl = document.getElementById("assignment-instructions");
+  if (instructionsEl) {
+    const raw = String(data?.instructions || "").trim();
+    if (!raw) {
+      instructionsEl.textContent = "-";
+    } else {
+      const lines = raw
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (lines.length > 1) {
+        instructionsEl.innerHTML =
+          "<ol>" +
+          lines
+            .map((line) =>
+              `<li>${escapeHtml(line.replace(/^(\d+[\).:\s-]+|[-*]\s+)/, ""))}</li>`,
+            )
+            .join("") +
+          "</ol>";
+      } else {
+        instructionsEl.textContent = raw;
+      }
+    }
+  }
   setText("assignment-due-at", formatDateDisplay(data?.due_at));
   setText("assignment-max-points", data?.max_points ?? "-");
   setText("assignment-configured", data?.is_configured ? "Yes" : "No");
@@ -152,9 +192,11 @@ function initTerminal() {
     cursorBlink: true,
     convertEol: true,
     fontSize: 13,
+    fontFamily:
+      '"SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace',
     theme: {
-      background: "#111111",
-      foreground: "#e7e7e7",
+      background: "#050607",
+      foreground: "#e6edf5",
     },
   });
 
@@ -162,7 +204,7 @@ function initTerminal() {
   term.loadAddon(fitAddon);
   term.open(document.getElementById("terminal"));
   fitAddon.fit();
-  term.writeln("LTI-Shell terminal ready.");
+  term.writeln("Terminal ready. Start an environment to connect.");
 
   // Forward keyboard input to backend websocket terminal bridge.
   term.onData((data) => {
@@ -197,7 +239,7 @@ function closeSocket() {
     } catch (_) {}
     ws = null;
   }
-  setWsStatus("Disconnected", "#666");
+  setWsStatus("Disconnected", "#96a0ad");
 }
 
 function terminateAttemptOnPageExit() {
@@ -252,14 +294,17 @@ function openSocket(attemptId) {
 
     const socket = new WebSocket(url);
     ws = socket;
-    setWsStatus("Connecting...", "#c58a00");
+    setWsStatus("Connecting to terminal gateway...", "#f4c542");
 
     socket.onopen = () => {
       if (ws !== socket) {
         return;
       }
       opened = true;
-      setWsStatus("Connected", "#167c2f");
+      setWsStatus(
+        "Connected via WebSockets (Ephemeral Container Active)",
+        "#e8eef8",
+      );
       if (fitAddon && term) {
         fitAddon.fit();
         socket.send(
@@ -297,10 +342,10 @@ function openSocket(attemptId) {
     };
 
     socket.onclose = () => {
-      setWsStatus("Disconnected", "#666");
+      setWsStatus("Disconnected", "#96a0ad");
       if (ws === socket) {
         ws = null;
-        setWsStatus("Disconnected", "#666");
+        setWsStatus("Disconnected", "#96a0ad");
       }
       if (!opened) {
         rejectOnce(new Error("Terminal connection closed before open."));
@@ -309,7 +354,7 @@ function openSocket(attemptId) {
 
     socket.onerror = () => {
       if (ws === socket) {
-        setWsStatus("Error", "red");
+        setWsStatus("Connection error", "#ff8793");
       }
       if (!opened) {
         rejectOnce(new Error("Terminal websocket error."));

@@ -15,6 +15,7 @@ The project emphasizes professional software engineering practices including sec
 - Browser-based command execution interface
 - Automated grading using Bash test scripts
 - Grade passback to LMS gradebook
+- Starter files automatically copied into `/workspace` on attempt create/reset
 - Secure sandboxing with resource limits
 
 ## Technology Stack
@@ -121,7 +122,17 @@ Moodle will be available at **http://localhost** once it finishes starting (this
 
 - **Admin login:** `admin` / `Admin123!`
 
-### 5. Start the Flask Server
+### 5. Build the Sandbox Image (vi + common CLI tools)
+
+Build the attempt sandbox image once from the repository root:
+
+```bash
+docker build -t lti-shell-sandbox:latest -f docker/sandbox/Dockerfile .
+```
+
+This image includes `vim-tiny` (`vi`), `nano`, `less`, `tree`, `jq`, `zip`, `unzip`, and other common Linux utilities.
+
+### 6. Start the Flask Server
 
 From the `backend/` directory (with venv activated):
 
@@ -134,7 +145,7 @@ The server starts at **http://localhost:5000**. Verify it works:
 - http://localhost:5000 — should show the landing page
 - http://localhost:5000/lti/jwks — should return JSON with your RSA public key
 
-### 6. Register the LTI Tool in Moodle
+### 7. Register the LTI Tool in Moodle
 
 1. Log into Moodle as admin
 2. Go to **Site administration** > **Plugins** > **Activity modules** > **External tool** > **Manage tools**
@@ -152,7 +163,7 @@ The server starts at **http://localhost:5000**. Verify it works:
 
 > **Note:** The Public keyset URL uses `host.docker.internal` instead of `localhost` because Moodle runs inside a Docker container and needs to reach the Flask server on your host machine.
 
-### 7. Update LTI Configuration
+### 8. Update LTI Configuration
 
 After saving the tool in Moodle:
 
@@ -173,7 +184,7 @@ After saving the tool in Moodle:
 }
 ```
 
-### 8. Test the LTI Launch
+### 9. Test the LTI Launch
 
 1. In Moodle, go to any course (or create one)
 2. Turn editing on

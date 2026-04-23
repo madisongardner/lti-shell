@@ -9,167 +9,164 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css"
     />
-    <style>
-      #terminal-wrap {
-        margin-top: 1rem;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        overflow: hidden;
-      }
-      #terminal-toolbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.5rem 0.75rem;
-        background: #f4f6f8;
-        border-bottom: 1px solid #ddd;
-      }
-      #terminal {
-        height: 340px;
-        padding: 0.25rem;
-        background: #111;
-      }
-      #ws-status {
-        font-size: 0.9rem;
-      }
-    </style>
   </head>
-  <body>
-    <div class="container">
-      <h1>Assignment Workspace</h1>
+  <body class="assignment-page">
+    <div class="assignment-shell">
+      <header class="app-topbar">
+        <div class="topbar-brand">
+          <h1>LTI-Shell Sandbox | Student View</h1>
+        </div>
+        <button id="submit-btn" class="submit-assignment-btn" disabled>
+          Submit Assignment
+        </button>
+      </header>
 
-      <div id="error" style="display: none; color: red; margin-top: 1rem"></div>
+      <main class="workspace-grid">
+        <section class="instructions-column">
+          <h2 class="section-title">Assignment Instructions</h2>
 
-      <div id="user-summary" style="margin-top: 1rem">
-        <p>Loading session...</p>
-      </div>
-
-      <div style="margin-top: 1rem">
-        <h3>Assignment Details</h3>
-        <table>
-          <tr>
-            <th>Title</th>
-            <td id="assignment-title">-</td>
-          </tr>
-          <tr>
-            <th>Instructions</th>
-            <td id="assignment-instructions">-</td>
-          </tr>
-          <tr>
-            <th>Due</th>
-            <td id="assignment-due-at">-</td>
-          </tr>
-          <tr>
-            <th>Max Points</th>
-            <td id="assignment-max-points">-</td>
-          </tr>
-          <tr>
-            <th>Configured</th>
-            <td id="assignment-configured">-</td>
-          </tr>
-        </table>
-      </div>
-
-      <div
-        style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap"
-      >
-        <button id="start-btn">Start Attempt</button>
-        <button id="reset-btn" disabled>Reset Attempt</button>
-        <button id="terminate-btn" disabled>Terminate Attempt</button>
-        <button id="refresh-btn" disabled>Refresh Status</button>
-        <button id="submit-btn" disabled>Submit For Grading</button>
-      </div>
-
-      <div style="margin-top: 1rem">
-        <h3>Attempt Status</h3>
-        <table>
-          <tr>
-            <th>Attempt ID</th>
-            <td id="attempt-id">-</td>
-          </tr>
-          <tr>
-            <th>Status</th>
-            <td id="attempt-status">-</td>
-          </tr>
-          <tr>
-            <th>Docker Status</th>
-            <td id="docker-status">-</td>
-          </tr>
-          <tr>
-            <th>Container ID</th>
-            <td id="container-id">-</td>
-          </tr>
-          <tr>
-            <th>Created At</th>
-            <td id="created-at">-</td>
-          </tr>
-          <tr>
-            <th>Expires At</th>
-            <td id="expires-at">-</td>
-          </tr>
-        </table>
-      </div>
-
-      <div id="terminal-wrap">
-        <div id="terminal-toolbar">
-          <strong>Shell</strong>
-          <div>
-            <span id="ws-status">Disconnected</span>
-            <button
-              id="clear-terminal"
-              type="button"
-              style="margin-left: 0.5rem"
+          <div class="instruction-card">
+            <h3 id="assignment-title">-</h3>
+            <div
+              id="assignment-instructions"
+              class="assignment-instructions-text"
             >
-              Clear
-            </button>
+              -
+            </div>
+
+            <div class="assignment-action-row">
+              <button id="start-btn" class="btn btn-primary">
+                Start Environment
+              </button>
+              <button id="reset-btn" class="btn btn-dark" disabled>
+                Reset Environment
+              </button>
+            </div>
+
+            <div class="assignment-meta">
+              <div class="meta-row">
+                <span>Due</span>
+                <strong id="assignment-due-at">-</strong>
+              </div>
+              <div class="meta-row">
+                <span>Max Points</span>
+                <strong id="assignment-max-points">-</strong>
+              </div>
+              <div class="meta-row">
+                <span>Configured</span>
+                <strong id="assignment-configured">-</strong>
+              </div>
+            </div>
+
+            <div id="user-summary" class="user-summary-card">
+              <p>Loading session...</p>
+            </div>
+
+            <div id="error" class="error-banner"></div>
           </div>
-        </div>
-        <div id="terminal"></div>
-      </div>
+        </section>
 
-      <div style="margin-top: 1rem">
-        <h3>Latest Submission</h3>
-        <table>
-          <tr>
-            <th>Submission ID</th>
-            <td id="submission-id">-</td>
-          </tr>
-          <tr>
-            <th>Status</th>
-            <td id="submission-status">-</td>
-          </tr>
-          <tr>
-            <th>Score</th>
-            <td id="submission-score">-</td>
-          </tr>
-          <tr>
-            <th>Completed At</th>
-            <td id="submission-completed-at">-</td>
-          </tr>
-          <tr>
-            <th>Passback Status</th>
-            <td id="submission-passback-status">-</td>
-          </tr>
-          <tr>
-            <th>Passback Attempts</th>
-            <td id="submission-passback-attempts">-</td>
-          </tr>
-          <tr>
-            <th>Passback Error</th>
-            <td id="submission-passback-error">-</td>
-          </tr>
-        </table>
-        <div style="margin-top: 0.75rem">
-          <strong>Stdout</strong>
-          <pre id="submission-stdout" style="max-height: 180px; overflow: auto; border: 1px solid #ddd; padding: 0.5rem; background: #fafafa">-</pre>
-        </div>
-        <div style="margin-top: 0.75rem">
-          <strong>Stderr</strong>
-          <pre id="submission-stderr" style="max-height: 180px; overflow: auto; border: 1px solid #ddd; padding: 0.5rem; background: #fff6f6">-</pre>
-        </div>
-      </div>
+        <section class="terminal-column">
+          <div class="terminal-header-row">
+            <h2 class="section-title">Terminal Gateway</h2>
+            <div id="message" class="message-strip"></div>
+          </div>
 
-      <div id="message" style="margin-top: 1rem"></div>
+          <div id="terminal-wrap">
+            <div id="terminal-toolbar">
+              <div class="ws-indicator" data-state="disconnected">
+                <span class="status-dot"></span>
+                <span id="ws-status">Disconnected</span>
+              </div>
+              <div class="toolbar-actions">
+                <button id="refresh-btn" class="btn btn-toolbar" disabled>
+                  Refresh Status
+                </button>
+                <button id="terminate-btn" class="btn btn-toolbar" disabled>
+                  Terminate
+                </button>
+                <button
+                  id="clear-terminal"
+                  class="btn btn-toolbar"
+                  type="button"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <div id="terminal"></div>
+          </div>
+
+          <div class="attempt-strip">
+            <div class="attempt-item">
+              <span>Attempt</span>
+              <strong id="attempt-id">-</strong>
+            </div>
+            <div class="attempt-item">
+              <span>Status</span>
+              <strong id="attempt-status">-</strong>
+            </div>
+            <div class="attempt-item">
+              <span>Docker</span>
+              <strong id="docker-status">-</strong>
+            </div>
+            <div class="attempt-item">
+              <span>Container</span>
+              <strong id="container-id">-</strong>
+            </div>
+            <div class="attempt-item">
+              <span>Started</span>
+              <strong id="created-at">-</strong>
+            </div>
+            <div class="attempt-item">
+              <span>Expires</span>
+              <strong id="expires-at">-</strong>
+            </div>
+          </div>
+
+          <details class="submission-panel">
+            <summary>Latest Submission</summary>
+            <table>
+              <tr>
+                <th>Submission ID</th>
+                <td id="submission-id">-</td>
+              </tr>
+              <tr>
+                <th>Status</th>
+                <td id="submission-status">-</td>
+              </tr>
+              <tr>
+                <th>Score</th>
+                <td id="submission-score">-</td>
+              </tr>
+              <tr>
+                <th>Completed At</th>
+                <td id="submission-completed-at">-</td>
+              </tr>
+              <tr>
+                <th>Passback Status</th>
+                <td id="submission-passback-status">-</td>
+              </tr>
+              <tr>
+                <th>Passback Attempts</th>
+                <td id="submission-passback-attempts">-</td>
+              </tr>
+              <tr>
+                <th>Passback Error</th>
+                <td id="submission-passback-error">-</td>
+              </tr>
+            </table>
+            <div class="submission-output">
+              <strong>Stdout</strong>
+              <pre id="submission-stdout">-</pre>
+            </div>
+            <div class="submission-output">
+              <strong>Stderr</strong>
+              <pre id="submission-stderr">-</pre>
+            </div>
+          </details>
+        </section>
+      </main>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
