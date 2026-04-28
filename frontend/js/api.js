@@ -101,6 +101,20 @@ const API = {
     });
   },
 
+  async attachAssignmentToCurrentActivity(assignmentId) {
+    return this.request(
+      `/api/assignments/${encodeURIComponent(assignmentId)}/attach-current-activity`,
+      { method: "POST" },
+    );
+  },
+
+  async detachAssignmentFromCurrentActivity(assignmentId) {
+    return this.request(
+      `/api/assignments/${encodeURIComponent(assignmentId)}/detach-current-activity`,
+      { method: "POST" },
+    );
+  },
+
   async uploadStarterZip(assignmentId, file) {
     const formData = new FormData();
     formData.append("file", file);
@@ -123,5 +137,12 @@ const API = {
     return this.request(`/api/assignments/${encodeURIComponent(assignmentId)}/artifacts-status`, {
       method: "GET",
     });
+  },
+
+  async deleteAssignmentArtifact(assignmentId, artifactKind) {
+    return this.request(
+      `/api/assignments/${encodeURIComponent(assignmentId)}/artifacts/${encodeURIComponent(artifactKind)}`,
+      { method: "DELETE" },
+    );
   },
 };

@@ -16,9 +16,12 @@
         <div class="topbar-brand">
           <h1>LTI-Shell Sandbox | Student View</h1>
         </div>
-        <button id="submit-btn" class="submit-assignment-btn" disabled>
-          Submit Assignment
-        </button>
+        <div class="topbar-actions">
+          <div id="nav-user-name" class="topbar-user-name">Loading user...</div>
+          <button id="submit-btn" class="submit-assignment-btn" disabled>
+            Submit Assignment
+          </button>
+        </div>
       </header>
 
       <main class="workspace-grid">
@@ -27,6 +30,16 @@
 
           <div class="instruction-card">
             <h3 id="assignment-title">-</h3>
+            <div class="activity-context" aria-label="Activity assignment">
+              <div class="activity-context-row">
+                <span>Course</span>
+                <strong id="activity-course">-</strong>
+              </div>
+              <div class="activity-context-row">
+                <span>Activity</span>
+                <strong id="activity-name">-</strong>
+              </div>
+            </div>
             <div
               id="assignment-instructions"
               class="assignment-instructions-text"

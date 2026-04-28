@@ -1,90 +1,313 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Teacher Dashboard - LTI-Shell</title>
-    <link rel="stylesheet" href="/css/styles.css">
-</head>
-<body>
-    <div class="container">
-        <h1>Teacher Dashboard</h1>
-        <div id="user-info">
-            <p>Loading user information...</p>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="teacher-page">
+    <a class="skip-link" href="#teacher-main">Skip to main content</a>
+    <div class="teacher-shell">
+      <header class="app-topbar teacher-topbar">
+        <div class="topbar-brand">
+          <h1>LTI-Shell | Instructor Dashboard</h1>
+        </div>
+        <div class="topbar-actions">
+          <div id="nav-user-name" class="topbar-user-name">Loading user...</div>
+          <a class="topbar-link" href="/pages/assignment-view.html"
+            >Open Student View</a
+          >
+        </div>
+      </header>
+
+      <main id="teacher-main" class="teacher-main" tabindex="-1">
+        <section
+          class="teacher-intro"
+          aria-labelledby="activity-assignment-heading"
+        >
+          <h2 id="activity-assignment-heading">Activity Assignment</h2>
+          <p>
+            Each Moodle activity can have one LTI-Shell assignment attached at a
+            time. Use the controls below to create a new assignment or attach an
+            existing one to the current activity.
+          </p>
+          <div class="activity-context" aria-label="Activity assignment">
+            <div class="activity-context-row">
+              <span>Course</span>
+              <strong id="activity-course">-</strong>
+            </div>
+            <div class="activity-context-row">
+              <span>Activity</span>
+              <strong id="activity-name">-</strong>
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="admin-card current-assignment-card"
+          aria-labelledby="attached-assignment-heading"
+        >
+          <div class="admin-card-header">
+            <div>
+              <h2 id="attached-assignment-heading">Attached Assignment</h2>
+              <p class="admin-helper-text">
+                This assignment is active for the current Moodle activity.
+              </p>
+            </div>
+          </div>
+          <div
+            id="current-assignment-summary"
+            class="current-assignment-summary"
+            role="status"
+            aria-live="polite"
+          >
+            Loading current assignment...
+          </div>
+          <div class="admin-actions dashboard-primary-actions">
+            <button
+              id="assignment-details-toggle"
+              type="button"
+              aria-controls="assignment-form-section"
+              aria-expanded="false"
+              disabled
+            >
+              Configure Assignment Details
+            </button>
+
+            <button
+              id="select-assignment-toggle"
+              type="button"
+              aria-controls="assignment-select-section"
+              aria-expanded="false"
+            >
+              Choose Existing
+            </button>
+            <button
+              id="assignment-detach"
+              type="button"
+              class="btn-danger"
+              disabled
+            >
+              Remove Assignment
+            </button>
+          </div>
+        </section>
+        <section
+          id="assignment-select-section"
+          class="admin-card assignment-picker-card dashboard-panel-hidden"
+          aria-labelledby="use-existing-assignment-heading"
+          aria-hidden="true"
+        >
+          <h2 id="use-existing-assignment-heading">Use Existing Assignment</h2>
+          <p class="admin-helper-text">
+            Attaching an assignment here replaces the current assignment for
+            this Moodle activity only.
+          </p>
+          <div id="assignments-empty" class="admin-empty" role="status">
+            No assignments created yet.
+          </div>
+          <div class="admin-table-wrap">
+            <table id="assignments-table" style="display: none">
+              <caption>
+                Course assignments available to attach to this Moodle activity
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Title</th>
+                  <th scope="col">Instructions</th>
+                  <th scope="col">Due</th>
+                  <th scope="col">Points</th>
+                  <th scope="col">Configured</th>
+                  <th scope="col">Current</th>
+                  <th scope="col">Action</th>
+                </tr>
+              </thead>
+              <tbody id="assignments-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+        <div class="assignment-config-grid">
+          <section
+            id="assignment-form-section"
+            class="admin-card assignment-details-card"
+            aria-labelledby="create-assignment-heading"
+            aria-hidden="false"
+          >
+            <h2 id="create-assignment-heading">Assignment Details</h2>
+            <p id="create-assignment-help" class="admin-helper-text">
+              Configure the basic assignment information for this Moodle
+              activity.
+            </p>
+            <form
+              id="assignment-form"
+              class="admin-form"
+              aria-describedby="create-assignment-help"
+            >
+              <label class="admin-field" for="assignment-title">
+                <span>Assignment Title</span>
+                <input
+                  id="assignment-title"
+                  name="title"
+                  type="text"
+                  autocomplete="off"
+                  required
+                />
+              </label>
+              <div class="admin-form-row">
+                <label class="admin-field" for="assignment-max-points">
+                  <span>Total Points</span>
+                  <input
+                    id="assignment-max-points"
+                    name="max_points"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value="100"
+                    required
+                  />
+                </label>
+                <label class="admin-field" for="assignment-due-at">
+                  <span>Due Date</span>
+                  <input
+                    id="assignment-due-at"
+                    name="due_at"
+                    type="datetime-local"
+                  />
+                </label>
+              </div>
+              <label class="admin-field" for="assignment-instructions">
+                <span>Instructions</span>
+                <textarea
+                  id="assignment-instructions"
+                  name="instructions"
+                  rows="6"
+                  required
+                ></textarea>
+              </label>
+
+              <fieldset class="assignment-files-fieldset">
+                <legend>Assignment Files</legend>
+                <p class="admin-helper-text">
+                  Choose ZIP files here, then use Create Assignment or Save
+                  Changes to upload them.
+                </p>
+
+                <div class="assignment-files-grid">
+                  <div class="artifact-upload-item">
+                    <div class="artifact-upload-header">
+                      <h3>Starter Files</h3>
+                      <p>
+                        ZIP archive with initial files for the student
+                        workspace.
+                      </p>
+                    </div>
+                    <label class="artifact-drop-zone" for="starter-zip">
+                      <span class="artifact-drop-icon" aria-hidden="true"
+                        >Choose</span
+                      >
+                      <span>Choose a starter ZIP file</span>
+                      <small>ZIP files only</small>
+                      <input
+                        id="starter-zip"
+                        name="starter_zip"
+                        type="file"
+                        accept=".zip"
+                      />
+                    </label>
+                    <div class="artifact-file-row">
+                      <div
+                        id="starter-file-status"
+                        class="artifact-file-status"
+                        aria-live="polite"
+                      >
+                        No starter ZIP attached.
+                      </div>
+                      <button
+                        id="starter-remove-btn"
+                        type="button"
+                        class="artifact-remove-btn"
+                        disabled
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="artifact-upload-item">
+                    <div class="artifact-upload-header">
+                      <h3>Grading Scripts</h3>
+                      <p>ZIP archive containing run_tests.sh and test files.</p>
+                    </div>
+                    <label class="artifact-drop-zone" for="tests-zip">
+                      <span class="artifact-drop-icon" aria-hidden="true"
+                        >Choose</span
+                      >
+                      <span>Choose a tests ZIP file</span>
+                      <small>Must include run_tests.sh</small>
+                      <input
+                        id="tests-zip"
+                        name="tests_zip"
+                        type="file"
+                        accept=".zip"
+                      />
+                    </label>
+                    <div class="artifact-file-row">
+                      <div
+                        id="tests-file-status"
+                        class="artifact-file-status"
+                        aria-live="polite"
+                      >
+                        No tests ZIP attached.
+                      </div>
+                      <button
+                        id="tests-remove-btn"
+                        type="button"
+                        class="artifact-remove-btn"
+                        disabled
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  id="artifact-status"
+                  class="artifact-status-card"
+                  role="status"
+                  aria-live="polite"
+                ></div>
+              </fieldset>
+
+              <div class="admin-actions">
+                <button id="assignment-submit" type="submit">
+                  Create Assignment
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
 
-        <section style="margin-top: 1.5rem;">
-            <h2 style="margin-bottom: 0.75rem;">Create Assignment For This LTI Activity</h2>
-            <form id="assignment-form" style="display: grid; gap: 0.75rem;">
-                <label>
-                    Title
-                    <input id="assignment-title" type="text" required style="width: 100%; padding: 0.5rem;" />
-                </label>
-                <label>
-                    Instructions
-                    <textarea id="assignment-instructions" rows="5" required style="width: 100%; padding: 0.5rem;"></textarea>
-                </label>
-                <label>
-                    Due Date (optional)
-                    <input id="assignment-due-at" type="datetime-local" style="width: 100%; padding: 0.5rem;" />
-                </label>
-                <label>
-                    Max Points
-                    <input id="assignment-max-points" type="number" min="1" step="1" value="100" required style="width: 100%; padding: 0.5rem;" />
-                </label>
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                    <button id="assignment-submit" type="submit">Create Assignment</button>
-                    <button id="assignment-update" type="button" disabled>Update Selected</button>
-                </div>
-            </form>
-        </section>
-
-        <section style="margin-top: 1.5rem;">
-            <h2 style="margin-bottom: 0.75rem;">Assignments In This Course</h2>
-            <div id="assignments-empty" style="color: #666;">No assignments created yet.</div>
-            <table id="assignments-table" style="display: none;">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Resource Link</th>
-                        <th>Due</th>
-                        <th>Points</th>
-                        <th>Configured</th>
-                    </tr>
-                </thead>
-                <tbody id="assignments-tbody"></tbody>
-            </table>
-        </section>
-
-        <section style="margin-top: 1.5rem;">
-            <h2 style="margin-bottom: 0.75rem;">Assignment Artifacts</h2>
-            <p style="margin-bottom: 0.75rem; color: #555;">
-                Select an assignment row above, then upload both starter and tests ZIP files.
-            </p>
-            <div style="display: grid; gap: 0.75rem;">
-                <label>
-                    Starter ZIP
-                    <input id="starter-zip" type="file" accept=".zip" />
-                </label>
-                <button id="starter-upload-btn" type="button" disabled>Upload Starter ZIP</button>
-
-                <label>
-                    Tests ZIP
-                    <input id="tests-zip" type="file" accept=".zip" />
-                </label>
-                <button id="tests-upload-btn" type="button" disabled>Upload Tests ZIP</button>
-            </div>
-
-            <div id="artifact-status" style="margin-top: 1rem; color: #2c3e50;"></div>
-        </section>
-
-        <p style="margin-top: 1rem;">
-            <a href="/pages/assignment-view.html">Open Assignment View</a>
-        </p>
-        <div id="assignment-message" style="margin-top: 1rem;"></div>
-        <div id="error" style="display: none; color: red;"></div>
+        <div
+          id="user-info"
+          class="visually-hidden"
+          role="status"
+          aria-live="polite"
+        >
+          Loading user information...
+        </div>
+        <div
+          id="assignment-message"
+          class="assignment-message"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        ></div>
+        <div id="error" class="error-banner" role="alert"></div>
+      </main>
     </div>
     <script src="/js/api.js"></script>
     <script src="/js/app.js"></script>
-</body>
+  </body>
 </html>

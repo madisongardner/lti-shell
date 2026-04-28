@@ -155,3 +155,25 @@ def save_assignment_archive(file_storage, assignment, artifact_kind: str) -> dic
         "file_count": validation["file_count"],
         "total_uncompressed": validation["total_uncompressed"],
     }
+
+
+def clear_assignment_archive(assignment, artifact_kind: str) -> None:
+    """Remove stored files for an assignment artifact kind."""
+    if artifact_kind not in {"starter", "tests"}:
+        raise ArtifactValidationError("Unsupported artifact type")
+
+    zip_path = (
+        assignment.starter_zip_path
+        if artifact_kind == "starter"
+        else assignment.tests_zip_path
+    )
+    extracted_path = (
+        assignment.starter_extracted_path
+        if artifact_kind == "starter"
+        else assignment.tests_extracted_path
+    )
+
+    if zip_path:
+        Path(zip_path).unlink(missing_ok=True)
+    if extracted_path:
+        shutil.rmtree(Path(extracted_path), ignore_errors=True)

@@ -15,7 +15,11 @@ from services.docker_service import (
     terminate_attempt_container,
 )
 from services.attempt_cleanup_service import refresh_attempt_timeout
-from services.assignment_artifact_service import ArtifactValidationError, save_assignment_archive
+from services.assignment_artifact_service import (
+    ArtifactValidationError,
+    clear_assignment_archive,
+    save_assignment_archive,
+)
 from services.audit_service import log_event
 from services.grading_service import run_grading_for_attempt
 from services.lti_ags_service import post_grade_with_retry
@@ -80,7 +84,7 @@ def _serialize_assignment(assignment):
         "lineitem_url": assignment.lineitem_url,
         "title": assignment.title,
         "instructions": assignment.instructions,
-        "due_at": assignment.due_at.isoformat() if assignment.due_at else None,
+        "due_at": _serialize_datetime(assignment.due_at),
         "max_points": assignment.max_points,
         "is_configured": assignment.is_configured,
         "starter_zip_uploaded": bool(assignment.starter_zip_path),
@@ -89,8 +93,8 @@ def _serialize_assignment(assignment):
         "artifacts_validated": bool(assignment.artifacts_validated),
         "artifact_validation_error": assignment.artifact_validation_error,
         "configuration_reasons": reasons,
-        "created_at": assignment.created_at.isoformat(),
-        "updated_at": assignment.updated_at.isoformat(),
+        "created_at": _serialize_datetime(assignment.created_at),
+        "updated_at": _serialize_datetime(assignment.updated_at),
     }
 
 
@@ -109,11 +113,9 @@ def _serialize_submission(submission):
         "passback_status": submission.passback_status,
         "passback_attempts": submission.passback_attempts,
         "passback_last_error": submission.passback_last_error,
-        "passback_completed_at": (
-            submission.passback_completed_at.isoformat() if submission.passback_completed_at else None
-        ),
-        "created_at": submission.created_at.isoformat(),
-        "completed_at": submission.completed_at.isoformat() if submission.completed_at else None,
+        "passback_completed_at": _serialize_datetime(submission.passback_completed_at),
+        "created_at": _serialize_datetime(submission.created_at),
+        "completed_at": _serialize_datetime(submission.completed_at),
     }
 
 
@@ -149,6 +151,14 @@ def _get_assignment_configuration_reasons(assignment):
             seen.add(reason)
             deduped.append(reason)
     return deduped
+
+
+def _serialize_datetime(value):
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _refresh_assignment_configuration(assignment):
@@ -212,6 +222,7 @@ def _get_assignment_for_launch(db, user):
         db.query(Assignment)
         .filter(Assignment.course_id == user.get("course_id", ""))
         .filter(Assignment.resource_link_id == user.get("resource_link_id", ""))
+        .order_by(Assignment.is_configured.desc(), Assignment.updated_at.desc())
         .first()
     )
 
@@ -349,6 +360,92 @@ def update_assignment(assignment_id):
         return jsonify(_serialize_assignment(assignment))
 
 
+@assignments_bp.route("/assignments/<assignment_id>/attach-current-activity", methods=["POST"])
+def attach_assignment_to_current_activity(assignment_id):
+    user, error_response = _require_teacher()
+    if error_response:
+        return error_response
+
+    current_resource_link_id = (user.get("resource_link_id") or "").strip()
+    if not current_resource_link_id:
+        return jsonify({"error": "Missing resource link context in session"}), 400
+
+    with _db_session() as db:
+        assignment, lookup_error = _get_assignment_owned_by_teacher(db, user, assignment_id)
+        if lookup_error:
+            return lookup_error
+
+        existing_for_activity = (
+            db.query(Assignment)
+            .filter(Assignment.course_id == user.get("course_id", ""))
+            .filter(Assignment.resource_link_id == current_resource_link_id)
+            .filter(Assignment.assignment_id != assignment.assignment_id)
+            .all()
+        )
+
+        replaced_assignment_ids = []
+        for attached in existing_for_activity:
+            # Detach any currently attached assignment from this activity.
+            attached.resource_link_id = ""
+            attached.lineitem_url = ""
+            replaced_assignment_ids.append(attached.assignment_id)
+
+        assignment.resource_link_id = current_resource_link_id
+        assignment.lineitem_url = (user.get("lineitem_url") or assignment.lineitem_url or "").strip()
+        _refresh_assignment_configuration(assignment)
+        db.commit()
+        db.refresh(assignment)
+        log_event(
+            "assignment.attached_to_activity",
+            actor_sub=user.get("sub", ""),
+            resource_link_id=assignment.resource_link_id,
+            details={
+                "assignment_id": assignment.assignment_id,
+                "course_id": assignment.course_id,
+                "title": assignment.title,
+                "replaced_assignment_ids": replaced_assignment_ids,
+            },
+        )
+        payload = _serialize_assignment(assignment)
+        payload["replaced_assignment_ids"] = replaced_assignment_ids
+        return jsonify(payload)
+
+
+@assignments_bp.route("/assignments/<assignment_id>/detach-current-activity", methods=["POST"])
+def detach_assignment_from_current_activity(assignment_id):
+    user, error_response = _require_teacher()
+    if error_response:
+        return error_response
+
+    current_resource_link_id = (user.get("resource_link_id") or "").strip()
+    if not current_resource_link_id:
+        return jsonify({"error": "Missing resource link context in session"}), 400
+
+    with _db_session() as db:
+        assignment, lookup_error = _get_assignment_owned_by_teacher(db, user, assignment_id)
+        if lookup_error:
+            return lookup_error
+
+        if assignment.resource_link_id != current_resource_link_id:
+            return jsonify({"error": "Assignment is not attached to this activity"}), 409
+
+        assignment.resource_link_id = ""
+        assignment.lineitem_url = ""
+        db.commit()
+        db.refresh(assignment)
+        log_event(
+            "assignment.detached_from_activity",
+            actor_sub=user.get("sub", ""),
+            resource_link_id=current_resource_link_id,
+            details={
+                "assignment_id": assignment.assignment_id,
+                "course_id": assignment.course_id,
+                "title": assignment.title,
+            },
+        )
+        return jsonify(_serialize_assignment(assignment))
+
+
 @assignments_bp.route("/assignments/<assignment_id>/starter-upload", methods=["POST"])
 def upload_starter_zip(assignment_id):
     user, error_response = _require_teacher()
@@ -431,6 +528,47 @@ def upload_tests_zip(assignment_id):
                 details={"assignment_id": assignment.assignment_id, "artifact": "tests", "error": str(exc)},
             )
             return jsonify({"error": str(exc)}), 400
+
+
+@assignments_bp.route("/assignments/<assignment_id>/artifacts/<artifact_kind>", methods=["DELETE"])
+def delete_assignment_artifact(assignment_id, artifact_kind):
+    user, error_response = _require_teacher()
+    if error_response:
+        return error_response
+
+    if artifact_kind not in {"starter", "tests"}:
+        return jsonify({"error": "Unsupported artifact type"}), 400
+
+    with _db_session() as db:
+        assignment, lookup_error = _get_assignment_owned_by_teacher(db, user, assignment_id)
+        if lookup_error:
+            return lookup_error
+
+        try:
+            clear_assignment_archive(assignment, artifact_kind)
+        except ArtifactValidationError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+        if artifact_kind == "starter":
+            assignment.starter_zip_path = None
+            assignment.starter_extracted_path = None
+        else:
+            assignment.tests_zip_path = None
+            assignment.tests_extracted_path = None
+            assignment.has_required_test_runner = False
+
+        assignment.artifacts_validated = False
+        assignment.artifact_validation_error = ""
+        _refresh_assignment_configuration(assignment)
+        db.commit()
+        db.refresh(assignment)
+        log_event(
+            "assignment.artifact_deleted",
+            actor_sub=user.get("sub", ""),
+            resource_link_id=assignment.resource_link_id,
+            details={"assignment_id": assignment.assignment_id, "artifact": artifact_kind},
+        )
+        return jsonify(_serialize_assignment(assignment))
 
 
 @assignments_bp.route("/assignments/<assignment_id>/artifacts-status", methods=["GET"])

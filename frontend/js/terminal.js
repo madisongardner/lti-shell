@@ -118,6 +118,15 @@ function renderAssignment(data) {
   setText("assignment-configured", data?.is_configured ? "Yes" : "No");
 }
 
+function renderUserContext(user) {
+  setText("nav-user-name", user?.name || "-");
+  const course = [user?.course_title, user?.course_label ? `(${user.course_label})` : ""]
+    .filter(Boolean)
+    .join(" ");
+  setText("activity-course", course || "-");
+  setText("activity-name", user?.resource_link_title || "-");
+}
+
 function renderSubmission(data) {
   setText("submission-id", data?.submission_id || "-");
   setText("submission-status", data?.status || "-");
@@ -409,6 +418,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     setButtons(false);
     return;
   }
+  renderUserContext(user);
 
   let assignment = null;
   try {

@@ -21,12 +21,7 @@
 }
 
 body {
-  font-family:
-    "Segoe UI",
-    Tahoma,
-    Geneva,
-    Verdana,
-    sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   background-color: #f5f7fb;
   color: var(--text-main);
   line-height: 1.45;
@@ -40,6 +35,32 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #f2a900;
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  transform: translateY(-140%);
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  padding: 0.65rem 0.85rem;
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
 }
 
 .container {
@@ -61,6 +82,24 @@ h1 {
 table {
   width: 100%;
   border-collapse: collapse;
+}
+
+caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 th,
@@ -91,16 +130,607 @@ button:disabled {
   cursor: not-allowed;
 }
 
-body.assignment-page {
-  padding: 0;
+.btn-danger {
+  background: #b42318;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #9f1c24;
+}
+
+body.teacher-page {
   min-height: 100vh;
+  padding: 0;
   background: var(--page-bg);
 }
 
-.assignment-shell {
+.teacher-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.teacher-topbar {
+  flex: 0 0 auto;
+}
+
+.topbar-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-radius: 8px;
+  background: rgba(13, 36, 76, 0.22);
+  color: #fff;
+  padding: 0.42rem 0.7rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.topbar-link:hover {
+  background: rgba(13, 36, 76, 0.32);
+  text-decoration: none;
+}
+
+.teacher-main {
+  width: min(1600px, 100%);
+  margin: 0 auto;
+  padding: 14px;
+  display: grid;
+  gap: 14px;
+}
+
+.teacher-intro {
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.teacher-intro h2 {
+  color: #1f2b3b;
+  font-size: 1.1rem;
+  margin-bottom: 0.35rem;
+}
+
+.teacher-intro p {
+  color: var(--text-subtle);
+  max-width: 780px;
+  font-size: 0.96rem;
+}
+
+.admin-card {
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.admin-card h2 {
+  margin-bottom: 0.7rem;
+  color: #1f2b3b;
+  font-size: 1.05rem;
+}
+
+.admin-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-card-header h2 {
+  margin-bottom: 0.2rem;
+}
+
+.teacher-user-info table th {
+  width: 118px;
+}
+
+.teacher-user-info table th,
+.teacher-user-info table td {
+  font-size: 0.9rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.admin-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.admin-form-row {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-field {
+  display: grid;
+  gap: 0.35rem;
+  color: #3d4b5f;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.admin-field input,
+.admin-field textarea {
+  width: 100%;
+  border: 1px solid #c9d4e4;
+  border-radius: 8px;
+  padding: 0.58rem 0.65rem;
+  font: inherit;
+  color: var(--text-main);
+  background: #fff;
+}
+
+.admin-field textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.admin-field input:focus,
+.admin-field textarea:focus {
+  outline: 3px solid #f2a900;
+  outline-offset: 2px;
+  border-color: #5b83be;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-primary-actions {
+  margin-top: 0.9rem;
+}
+
+.assignment-config-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.assignment-config-grid:empty {
+  display: none;
+}
+
+.assignment-config-grid:has(> .assignment-details-card.dashboard-panel-hidden),
+.assignment-config-grid:has(> .artifacts-config-column.dashboard-panel-hidden) {
+  grid-template-columns: 1fr;
+}
+
+.assignment-details-card {
+  min-height: 520px;
+}
+
+.artifacts-config-column {
+  display: grid;
+  gap: 16px;
+}
+
+.artifacts-config-column.dashboard-panel-hidden {
+  display: none;
+}
+
+.dashboard-panel-hidden {
+  display: none;
+}
+
+.current-assignment-summary {
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: var(--panel-bg);
+  overflow: hidden;
+}
+
+.assignment-status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem;
+}
+
+@media (max-width: 760px) {
+  .assignment-status-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.assignment-status-card strong {
+  display: block;
+  color: #1f2b3b;
+  font-size: 1rem;
+}
+
+.assignment-status-card span {
+  display: block;
+  color: var(--text-subtle);
+  font-size: 0.88rem;
+}
+
+.assignment-status-empty {
+  align-items: flex-start;
+}
+
+.assignment-status-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.assignment-status-meta span {
+  border: 1px solid #d6deea;
+  border-radius: 999px;
+  background: #fff;
+  color: #42526a;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.assignment-detail-table th,
+.assignment-detail-table td {
+  vertical-align: top;
+}
+
+.assignment-detail-table th {
+  width: 140px;
+  color: var(--text-subtle);
+}
+
+.assignment-detail-table td {
+  white-space: pre-line;
+  color: #273447;
+}
+
+.assignment-empty-state {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.85rem;
+  color: var(--text-subtle);
+}
+
+.assignment-empty-state strong {
+  color: #304154;
+}
+
+.assignment-empty-state span {
+  color: #64748b;
+}
+
+.admin-empty {
+  color: var(--text-subtle);
+  margin-bottom: 0.6rem;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+}
+
+.admin-table-wrap table {
+  min-width: 860px;
+}
+
+.admin-table-wrap th,
+.admin-table-wrap td {
+  width: auto;
+  border-bottom-color: #e6ebf2;
+  vertical-align: middle;
+  font-size: 0.9rem;
+}
+
+.admin-table-wrap tbody tr {
+  cursor: pointer;
+}
+
+.admin-table-wrap tbody tr:hover {
+  background: #f7f9fc;
+}
+
+.admin-table-wrap tbody tr:focus-visible {
+  outline: 3px solid #f2a900;
+  outline-offset: -3px;
+}
+
+.admin-table-wrap tbody tr.assignment-row-selected {
+  background: #eaf2ff;
+  box-shadow: inset 3px 0 0 var(--blue-700);
+}
+
+.table-row-select {
+  border: 0;
+  background: transparent;
+  color: var(--blue-700);
+  padding: 0;
+  text-align: left;
+}
+
+.table-row-select:hover {
+  text-decoration: underline;
+}
+
+.instructions-caption-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.instructions-preview {
+  max-width: 32rem;
+  border: 0;
+  background: transparent;
+  color: #273447;
+  padding: 0;
+  text-align: left;
+  font-weight: 400;
+}
+
+.instructions-preview:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.instructions-caption {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.35rem);
+  z-index: 20;
+  display: none;
+  width: min(32rem, 70vw);
+  max-height: 14rem;
+  overflow: auto;
+  border: 1px solid #cbd9ec;
+  border-radius: 8px;
+  background: #fff;
+  color: #1f2a37;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  padding: 0.65rem 0.75rem;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.instructions-caption-wrap:hover .instructions-caption,
+.instructions-caption-wrap:focus-within .instructions-caption {
+  display: block;
+}
+
+.table-row-attach {
+  min-height: 32px;
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+  white-space: nowrap;
+}
+
+.assignment-picker-card {
+  border-color: #cbd9ec;
+  background: #fbfdff;
+}
+
+.admin-helper-text {
+  margin: 0.25rem 0 0.8rem;
+  color: var(--text-subtle);
+  font-size: 0.92rem;
+}
+
+.assignment-files-fieldset {
+  display: grid;
+  gap: 0.85rem;
+  border: 0;
+  margin: 0;
+  padding: 0.35rem 0 0;
+}
+
+.assignment-files-fieldset legend {
+  color: #1f2b3b;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0;
+}
+
+.assignment-files-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.artifact-upload-card,
+.artifact-upload-item {
+  display: grid;
+  gap: 0.85rem;
+  align-content: start;
+}
+
+.artifact-upload-header {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.artifact-upload-header h3 {
+  color: #1f2b3b;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.artifact-upload-header p {
+  color: var(--text-subtle);
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.artifact-drop-zone {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.3rem;
+  border: 2px dashed #c5d0df;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #334155;
+  cursor: pointer;
+  padding: 1rem;
+  text-align: center;
+}
+
+.artifact-drop-zone:hover {
+  border-color: #7fa0cf;
+  background: #f3f7fc;
+}
+
+.artifact-drop-zone:focus-within {
+  outline: 3px solid #f2a900;
+  outline-offset: 3px;
+}
+
+.artifact-drop-zone input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.artifact-drop-icon {
+  color: var(--blue-700);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.artifact-drop-zone small {
+  color: var(--text-subtle);
+  font-size: 0.82rem;
+}
+
+.artifact-file-status {
+  min-height: 38px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: var(--panel-bg);
+  color: #42526a;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.artifact-file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.artifact-remove-btn {
+  min-height: 38px;
+  background: #b42318;
+  white-space: nowrap;
+}
+
+.artifact-remove-btn:hover:not(:disabled) {
+  background: #9f1c24;
+}
+
+.artifact-remove-btn:disabled {
+  background: #8a94a3;
+  color: #f8fafc;
+  opacity: 1;
+}
+
+.admin-upload-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(240px, 1fr) minmax(220px, max-content);
+  align-items: end;
+}
+
+.artifact-status-card {
+  margin-top: 0.85rem;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: var(--panel-bg);
+  color: #243547;
+  padding: 0.65rem 0.75rem;
+  min-height: 0;
+}
+
+.artifact-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.artifact-chip-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.artifact-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid #d3dae5;
+  border-radius: 999px;
+  background: #fff;
+  color: #526173;
+  padding: 0.18rem 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.artifact-ready-text {
+  color: #526173;
+  font-size: 0.88rem;
+}
+
+.artifact-status-error {
+  margin-top: 0.5rem;
+  color: #9f1c24;
+  font-size: 0.88rem;
+}
+
+.assignment-message {
+  min-height: 1.35rem;
+  color: #2f527f;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
+.assignment-message.is-error {
+  color: #b42318;
+}
+
+.admin-footer-row {
+  margin-top: 0.2rem;
+}
+
+body.assignment-page {
+  padding: 0;
+  height: 100vh;
+  background: var(--page-bg);
+  overflow: hidden;
+}
+
+.assignment-shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .app-topbar {
@@ -128,6 +758,20 @@ body.assignment-page {
   color: #fff;
   font-size: clamp(1rem, 1.8vw, 2rem);
   font-weight: 700;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.topbar-user-name {
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 .menu-button {
@@ -168,10 +812,19 @@ body.assignment-page {
 
 .workspace-grid {
   flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
   gap: 16px;
   padding: 14px;
+  overflow: hidden;
+}
+
+.instructions-column {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-gutter: stable;
 }
 
 .section-title {
@@ -189,12 +842,40 @@ body.assignment-page {
   gap: 12px;
 }
 
-#assignment-title {
+.assignment-page #assignment-title {
   font-size: clamp(1.35rem, 2.4vw, 2.75rem);
   line-height: 1.25;
   margin: 0;
   border: none;
   color: #1a2433;
+}
+
+.activity-context {
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  background: var(--panel-bg);
+  padding: 0.65rem 0.75rem;
+}
+
+.activity-context-row {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.activity-context-row span {
+  color: var(--text-subtle);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.activity-context-row strong {
+  color: #273447;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .assignment-instructions-text {
@@ -297,6 +978,11 @@ body.assignment-page {
 
 .terminal-column {
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  overflow: hidden;
 }
 
 .terminal-header-row {
@@ -314,6 +1000,9 @@ body.assignment-page {
 }
 
 #terminal-wrap {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--terminal-border);
   border-radius: 8px;
   overflow: hidden;
@@ -387,7 +1076,9 @@ body.assignment-page {
 }
 
 #terminal {
-  height: clamp(360px, 60vh, 720px);
+  flex: 1;
+  min-height: 0;
+  height: auto;
   padding: 0.2rem 0.35rem;
   background: var(--terminal-bg);
 }
@@ -460,8 +1151,43 @@ body.assignment-page {
 }
 
 @media (max-width: 1180px) {
+  .assignment-config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.assignment-page {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .assignment-shell {
+    height: auto;
+    min-height: 100vh;
+  }
+
   .workspace-grid {
     grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .instructions-column {
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .terminal-column {
+    height: auto;
+    overflow: visible;
+    display: block;
+  }
+
+  #terminal-wrap {
+    display: block;
+  }
+
+  #terminal {
+    height: clamp(360px, 60vh, 720px);
   }
 
   .attempt-strip {
@@ -470,10 +1196,58 @@ body.assignment-page {
 }
 
 @media (max-width: 760px) {
+  body.teacher-page {
+    padding: 0;
+  }
+
+  .teacher-main {
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .admin-card {
+    padding: 0.8rem;
+  }
+
+  .admin-card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-upload-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .assignment-files-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .artifact-file-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .app-topbar {
     flex-direction: column;
     align-items: stretch;
     padding: 10px 12px;
+  }
+
+  .topbar-link {
+    width: 100%;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .topbar-user-name {
+    max-width: 100%;
   }
 
   .topbar-brand h1 {

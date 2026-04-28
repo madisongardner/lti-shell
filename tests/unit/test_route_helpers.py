@@ -1,4 +1,5 @@
 """Unit tests for route authorization helpers."""
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
@@ -8,6 +9,7 @@ from routes.assignments import (
     _can_access_attempt,
     _parse_due_at,
     _coerce_max_points,
+    _serialize_datetime,
     _validate_assignment_payload,
 )
 
@@ -51,6 +53,22 @@ class TestParseDueAt:
     def test_none_returns_none(self):
         """U39c: None input returns None."""
         assert _parse_due_at(None) is None
+
+
+class TestSerializeDatetime:
+    """Datetime serialization for API payloads."""
+
+    def test_naive_datetime_is_serialized_as_utc(self):
+        """Naive datetimes should not round-trip as local browser time."""
+        result = _serialize_datetime(datetime(2026, 5, 2, 1, 0, 0))
+        assert result == "2026-05-02T01:00:00Z"
+
+    def test_aware_datetime_is_normalized_to_utc(self):
+        """Aware datetimes should be serialized with explicit UTC."""
+        result = _serialize_datetime(
+            datetime(2026, 5, 2, 1, 0, 0, tzinfo=timezone.utc),
+        )
+        assert result == "2026-05-02T01:00:00Z"
 
 
 class TestCoerceMaxPoints:
